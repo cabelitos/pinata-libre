@@ -10,6 +10,11 @@ interface Command {
   keyword: string;
 }
 
+interface SlackMessage {
+  text: string;
+  client_msg_id: string;
+}
+
 const getLeaderboardLimit = (): number => {
   const limit = parseInt(process.env.LEADERBOARD_LIMIT ?? '10', 10) ?? 10;
   return Number.isNaN(limit) ? 10 : limit;
@@ -64,6 +69,31 @@ const startRtmService = async (): Promise<void> => {
     },
   ];
 
+  const prepareMessageContext = (
+    subtype: string | undefined,
+    originalText: string | undefined,
+    originalMessageId: string | undefined,
+    message: SlackMessage,
+    prevMessage: SlackMessage,
+  ): Record<'textToUse' | 'tacosToDelete' | 'messageIdToUse', string> => {
+    let textToUse = originalText;
+    let messageIdToUse = originalMessageId;
+    let tacosToDelete;
+    if (subtype === 'message_changed') {
+      textToUse = message.text;
+      messageIdToUse = message.client_msg_id;
+      tacosToDelete = prevMessage.client_msg_id;
+    } else if (subtype === 'message_deleted') {
+      textToUse = prevMessage.text;
+      tacosToDelete = prevMessage.client_msg_id;
+    }
+    return {
+      messageIdToUse: messageIdToUse ?? '',
+      tacosToDelete: tacosToDelete ?? '',
+      textToUse: textToUse ?? '',
+    };
+  };
+
   rtm.on(
     'message',
     async ({
@@ -76,24 +106,24 @@ const startRtmService = async (): Promise<void> => {
       thread_ts: threadId,
     }): Promise<void> => {
       try {
-        let messageIdToUse: string = messageId ?? '';
-        let textToUse: string = text ?? '';
-        let tacosToDelete = null;
-        if (subtype === 'message_deleted') {
-          await Leaderboard.deleteTacos(prevMessage.client_msg_id);
-          return;
-        }
-
-        // New message or edited message
-        if (subtype === 'message_changed') {
-          textToUse = message.text;
-          messageIdToUse = message.client_msg_id;
-          // Message is being updated, delete old tacos.
-          tacosToDelete = prevMessage.client_msg_id;
-        }
-
+        const {
+          messageIdToUse,
+          tacosToDelete,
+          textToUse,
+        } = prepareMessageContext(
+          subtype,
+          text,
+          messageId,
+          message,
+          prevMessage,
+        );
+        const tacoMatch = textToUse.match(tacoRegExp);
         const people = Array.from(textToUse.matchAll(peopleRegex) ?? []);
         if (!people) return;
+        if (subtype === 'message_deleted' && tacosToDelete && tacoMatch) {
+          await Leaderboard.deleteTacos(tacosToDelete);
+          return;
+        }
 
         if (people.length === 1 && people[0][1] === botId) {
           for (let i = 0; i < commands.length; i += 1) {
@@ -110,8 +140,8 @@ const startRtmService = async (): Promise<void> => {
           }
         }
 
-        const tacoMatch = textToUse.match(tacoRegExp);
         if (!tacoMatch) return;
+
         const tacosToSave = people.reduce(
           (
             acc: Record<string, InsertLeaderboardData[]>,

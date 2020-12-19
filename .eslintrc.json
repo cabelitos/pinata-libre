@@ -30,6 +30,9 @@
         }
     },
     "rules": {
+        "camelcase": ["error", {
+          "allow": ["client_msg_id", "thread_ts"]
+        }],
         "import/extensions": ["error", "never"],
         "@typescript-eslint/consistent-type-assertions": [
             "error",
