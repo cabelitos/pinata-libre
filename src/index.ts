@@ -1,5 +1,5 @@
 import process from 'process';
-import { createConnection } from 'typeorm';
+import { createConnection, getConnection } from 'typeorm';
 import { RTMClient, RTMCallResult } from '@slack/rtm-api';
 import fastify from 'fastify';
 
@@ -153,12 +153,25 @@ const startRtmService = async (): Promise<void> => {
 
 const startHealthCheck = async (): Promise<void> => {
   const health = fastify();
-  health.get('/.well-known/fastify/server-health', (_, reply) => {
-    if (rtm.connected) {
-      reply.code(200).send({ status: 'pass' });
-    } else {
-      reply.code(500).send({ status: 'fail' });
+  const slackApiCheck = (): Promise<void> =>
+    rtm.connected
+      ? Promise.resolve()
+      : Promise.reject(new Error('Not connected with the slack API'));
+  const databaseCheck = async (): Promise<void> => {
+    const conn = getConnection();
+    if (!conn.isConnected) {
+      throw new Error('Not connected with the database');
     }
+    await conn.query('select 1');
+  };
+  health.get('/.well-known/fastify/server-health', async (_, reply) => {
+    try {
+      await Promise.all([slackApiCheck(), databaseCheck()]);
+    } catch (err) {
+      reply.code(500).send({ error: err.message, status: 'fail' });
+      return;
+    }
+    reply.code(200).send({ status: 'ok' });
   });
   await health.listen(
     process.env.HEALCHECKER_PORT ?? 8080,
