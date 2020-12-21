@@ -24,6 +24,7 @@ export interface InsertLeaderboardData {
   messageId: string;
   teamId: string;
   userId: string;
+  givenByUserId: string;
 }
 @Entity()
 export default class Leaderboard extends BaseEntity {
@@ -44,6 +45,7 @@ export default class Leaderboard extends BaseEntity {
   messageId: string;
 
   @Column()
+  @Index()
   teamId: string;
 
   @Column()
@@ -55,6 +57,10 @@ export default class Leaderboard extends BaseEntity {
     { name: 'teamId', referencedColumnName: 'teamId' },
   ])
   emoji: AllowedEmoji;
+
+  @Column()
+  @Index()
+  givenByUserId: string;
 
   static deleteAwards(
     messageIdToDelete: string,

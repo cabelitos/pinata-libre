@@ -9,6 +9,7 @@ import Leaderboard, { InsertLeaderboardData } from './entities/Leaderboard';
 import AllowedEmoji from './entities/AllowedEmoji';
 
 import installerProvider from './install-provider';
+import createHomeScreen from './home';
 
 interface Command {
   handler: (
@@ -40,7 +41,9 @@ const startRtmService = async (): Promise<void> => {
   await createConnection();
 
   const app = express();
-  const slackEvents = createEventAdapter(process.env.SLACK_SIGN_SECRET ?? '');
+  const slackEvents = createEventAdapter(process.env.SLACK_SIGN_SECRET ?? '', {
+    includeBody: true,
+  });
   const slackEventListener = slackEvents.requestListener();
 
   const databaseCheck = async (): Promise<void> => {
@@ -263,6 +266,24 @@ const startRtmService = async (): Promise<void> => {
   );
 
   slackEvents.on(
+    'app_home_opened',
+    async ({ user, tab }, { team_id: teamId }): Promise<void> => {
+      try {
+        if (tab !== 'home') return;
+        const view = await createHomeScreen(teamId, user);
+        const { botToken } = await getSlackBotInfo(teamId);
+        await new WebClient(botToken).views.publish({
+          user_id: user,
+          view,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(err);
+      }
+    },
+  );
+
+  slackEvents.on(
     'message',
     async ({
       text,
@@ -327,6 +348,7 @@ const startRtmService = async (): Promise<void> => {
             if (!acc[userId] && botUserId !== userId) {
               acc[userId] = emojisToAdd.map(emojiId => ({
                 emojiId,
+                givenByUserId: userIdToUse,
                 messageId: messageIdToUse,
                 teamId: teamIdToUse,
                 userId,
