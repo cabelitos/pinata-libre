@@ -18,8 +18,9 @@ interface Command {
 }
 
 interface SlackMessage {
-  text: string;
   client_msg_id: string;
+  team: string;
+  text: string;
 }
 
 const getLeaderboardLimit = (): number => {
@@ -131,21 +132,29 @@ const startRtmService = async (): Promise<void> => {
     originalMessageId: string | undefined,
     message: SlackMessage,
     prevMessage: SlackMessage,
-  ): Record<'textToUse' | 'tacosToDelete' | 'messageIdToUse', string> => {
+    teamId: string | undefined,
+  ): Record<
+    'textToUse' | 'tacosToDelete' | 'messageIdToUse' | 'teamIdToUse',
+    string
+  > => {
     let textToUse = originalText;
     let messageIdToUse = originalMessageId;
     let tacosToDelete;
+    let teamIdToUse = teamId;
     if (subtype === 'message_changed') {
       textToUse = message.text;
       messageIdToUse = message.client_msg_id;
       tacosToDelete = prevMessage.client_msg_id;
+      teamIdToUse = prevMessage.team;
     } else if (subtype === 'message_deleted') {
       textToUse = prevMessage.text;
       tacosToDelete = prevMessage.client_msg_id;
+      teamIdToUse = prevMessage.team;
     }
     return {
       messageIdToUse: messageIdToUse ?? '',
       tacosToDelete: tacosToDelete ?? '',
+      teamIdToUse: teamIdToUse ?? '',
       textToUse: textToUse ?? '',
     };
   };
@@ -192,18 +201,20 @@ const startRtmService = async (): Promise<void> => {
           messageIdToUse,
           tacosToDelete,
           textToUse,
+          teamIdToUse,
         } = prepareMessageContext(
           subtype,
           text,
           messageId,
           message,
           prevMessage,
+          teamId,
         );
         const tacoMatch = textToUse.match(tacoRegExp);
         const people = getMentionedPeople(textToUse);
         if (!people) return;
         if (subtype === 'message_deleted' && tacosToDelete && tacoMatch) {
-          await Leaderboard.deleteTacos(tacosToDelete, prevMessage.team);
+          await Leaderboard.deleteTacos(tacosToDelete, teamIdToUse);
           return;
         }
 
@@ -222,7 +233,7 @@ const startRtmService = async (): Promise<void> => {
                 // TODO - Support more emojis?
                 emoji: ':taco:',
                 messageId: messageIdToUse,
-                teamId,
+                teamId: teamIdToUse,
                 userId,
               });
             }
@@ -233,7 +244,7 @@ const startRtmService = async (): Promise<void> => {
         await Leaderboard.addTacos(
           Object.values(tacosToSave).flat(),
           tacosToDelete,
-          teamId,
+          teamIdToUse,
         );
       } catch (err) {
         // eslint-disable-next-line no-console
