@@ -103,7 +103,7 @@ const startRtmService = async (): Promise<void> => {
         threadId: string | undefined,
         team: string,
       ): Promise<void> => {
-        const data = await Leaderboard.getLeaderboard(leaderboardLimit);
+        const data = await Leaderboard.getLeaderboard(leaderboardLimit, team);
         if (!data.length) {
           await sendMessage(
             'Leaderboard is empty. Starting sending tacos! :taco:',
@@ -185,6 +185,7 @@ const startRtmService = async (): Promise<void> => {
       client_msg_id: messageId,
       previous_message: prevMessage,
       message,
+      team: teamId,
     }): Promise<void> => {
       try {
         const {
@@ -202,7 +203,7 @@ const startRtmService = async (): Promise<void> => {
         const people = getMentionedPeople(textToUse);
         if (!people) return;
         if (subtype === 'message_deleted' && tacosToDelete && tacoMatch) {
-          await Leaderboard.deleteTacos(tacosToDelete);
+          await Leaderboard.deleteTacos(tacosToDelete, prevMessage.team);
           return;
         }
 
@@ -217,6 +218,7 @@ const startRtmService = async (): Promise<void> => {
             if (!acc[userId]) {
               acc[userId] = new Array(tacoMatch.length).fill({
                 messageId: messageIdToUse,
+                teamId,
                 userId,
               });
             }
@@ -227,6 +229,7 @@ const startRtmService = async (): Promise<void> => {
         await Leaderboard.addTacos(
           Object.values(tacosToSave).flat(),
           tacosToDelete,
+          teamId,
         );
       } catch (err) {
         // eslint-disable-next-line no-console

@@ -16,8 +16,9 @@ export interface LeaderboardData {
 }
 
 export interface InsertLeaderboardData {
-  userId: string;
   messageId: string;
+  teamId: string;
+  userId: string;
 }
 @Entity()
 export default class Leaderboard extends BaseEntity {
@@ -37,23 +38,30 @@ export default class Leaderboard extends BaseEntity {
   @Column()
   messageId: string;
 
+  @Column()
+  @Index()
+  teamId: string;
+
   static deleteTacos(
     tacosToDelete: string,
+    teamId: string,
     manager?: EntityManager,
   ): Promise<unknown> {
     return (manager ?? getManager()).softDelete(Leaderboard, {
       messageId: tacosToDelete,
+      teamId,
     });
   }
 
   static async addTacos(
     people: InsertLeaderboardData[],
     tacosToDelete: string | null,
+    teamId: string,
   ): Promise<void> {
     return getManager().transaction(
       async (manager: EntityManager): Promise<void> => {
         if (tacosToDelete) {
-          await Leaderboard.deleteTacos(tacosToDelete, manager);
+          await Leaderboard.deleteTacos(tacosToDelete, teamId, manager);
         }
         await manager
           .createQueryBuilder()
@@ -65,10 +73,14 @@ export default class Leaderboard extends BaseEntity {
     );
   }
 
-  static async getLeaderboard(limit: number): Promise<LeaderboardData[]> {
+  static async getLeaderboard(
+    limit: number,
+    teamId: string,
+  ): Promise<LeaderboardData[]> {
     const data = await getManager()
       .createQueryBuilder(Leaderboard, 'lb')
       .select('count(*) as "tacoCount", lb.userId')
+      .where('lb.teamId = :teamId ', { teamId })
       .groupBy('lb.userId')
       .orderBy('"tacoCount"', 'DESC')
       .limit(limit)
