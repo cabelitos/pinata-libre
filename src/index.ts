@@ -1,12 +1,16 @@
 import process from 'process';
 import { createConnection, getConnection } from 'typeorm';
-import { RTMClient, RTMCallResult } from '@slack/rtm-api';
-import fastify from 'fastify';
+import express from 'express';
+import { createEventAdapter } from '@slack/events-api';
 
 import Leaderboard, { InsertLeaderboardData } from './entities/Leaderboard';
 
 interface Command {
-  handler: (channel: string, threadId: string | undefined) => Promise<void>;
+  handler: (
+    channel: string,
+    threadId: string | undefined,
+    team: string,
+  ) => Promise<void>;
   keyword: string;
 }
 
@@ -20,33 +24,53 @@ const getLeaderboardLimit = (): number => {
   return Number.isNaN(limit) ? 10 : limit;
 };
 
-const rtm = new RTMClient(process.env.SLACK_BOT_TOKEN ?? '', {
-  autoReconnect: true,
-});
-
 const tacoRegExp = /:taco:/gi;
 const peopleRegex = /<@(.+?)>/g;
 
 const startRtmService = async (): Promise<void> => {
   await createConnection();
-  let botId = '';
-  const leaderboardLimit = getLeaderboardLimit();
-  const sendMessage = (
-    text: string,
-    channel: string,
-    threadId: string | undefined,
-  ): Promise<RTMCallResult> => {
-    return rtm.addOutgoingEvent(true, 'message', {
-      channel,
-      text,
-      thread_ts: threadId,
-    });
+
+  const app = express();
+  const slackEvents = createEventAdapter(process.env.SLACK_SIGN_SECRET ?? '');
+  const slackEventListener = slackEvents.requestListener();
+
+  const databaseCheck = async (): Promise<void> => {
+    const conn = getConnection();
+    if (!conn.isConnected) {
+      throw new Error('Not connected with the database');
+    }
+    await conn.query('select 1');
   };
+
+  app.get('/.well-known/server-health', async (_, reply) => {
+    try {
+      await databaseCheck();
+    } catch (err) {
+      reply.status(500).send({ error: err.message, status: 'fail' });
+      return;
+    }
+    reply.status(200).send({ status: 'ok' });
+  });
+
+  app.post('/slack/events', slackEventListener);
+
+  const leaderboardLimit = getLeaderboardLimit();
+
+  const sendMessage = (
+    _text: string,
+    _channel: string,
+    _threadId: string | undefined,
+    _team: string,
+  ): Promise<void> => {
+    return Promise.resolve();
+  };
+
   const commands: Command[] = [
     {
       handler: async (
         channel: string,
         threadId: string | undefined,
+        team: string,
       ): Promise<void> => {
         const data = await Leaderboard.getLeaderboard(leaderboardLimit);
         if (!data.length) {
@@ -54,6 +78,7 @@ const startRtmService = async (): Promise<void> => {
             'Leaderboard is empty. Starting sending tacos! :taco:',
             channel,
             threadId,
+            team,
           );
           return;
         }
@@ -63,7 +88,7 @@ const startRtmService = async (): Promise<void> => {
             tacoCount === '1' ? 'taco' : 'tacos'
           }\n`;
         });
-        await sendMessage(text, channel, threadId);
+        await sendMessage(text, channel, threadId, team);
       },
       keyword: 'leaderboard',
     },
@@ -94,7 +119,34 @@ const startRtmService = async (): Promise<void> => {
     };
   };
 
-  rtm.on(
+  const getMentionedPeople = (text: string): RegExpMatchArray[] =>
+    Array.from(text.matchAll(peopleRegex) ?? []);
+
+  slackEvents.on(
+    'app_mention',
+    async ({ text, channel, thread_ts: threadId, team }): Promise<void> => {
+      try {
+        const people = getMentionedPeople(text);
+        if (people.length !== 1) return;
+        const botId = people[0][1];
+        for (let i = 0; i < commands.length; i += 1) {
+          const { handler, keyword } = commands[i];
+          if (
+            text.match(new RegExp(`^\\s*<@${botId}>\\s+${keyword}\\s*$`, 'i'))
+          ) {
+            // eslint-disable-next-line no-await-in-loop
+            await handler(channel, threadId, team);
+            return;
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(err);
+      }
+    },
+  );
+
+  slackEvents.on(
     'message',
     async ({
       text,
@@ -102,8 +154,6 @@ const startRtmService = async (): Promise<void> => {
       client_msg_id: messageId,
       previous_message: prevMessage,
       message,
-      channel,
-      thread_ts: threadId,
     }): Promise<void> => {
       try {
         const {
@@ -118,26 +168,11 @@ const startRtmService = async (): Promise<void> => {
           prevMessage,
         );
         const tacoMatch = textToUse.match(tacoRegExp);
-        const people = Array.from(textToUse.matchAll(peopleRegex) ?? []);
+        const people = getMentionedPeople(textToUse);
         if (!people) return;
         if (subtype === 'message_deleted' && tacosToDelete && tacoMatch) {
           await Leaderboard.deleteTacos(tacosToDelete);
           return;
-        }
-
-        if (people.length === 1 && people[0][1] === botId) {
-          for (let i = 0; i < commands.length; i += 1) {
-            const { handler, keyword } = commands[i];
-            if (
-              textToUse.match(
-                new RegExp(`^\\s*<@${botId}>\\s+${keyword}\\s*$`, 'i'),
-              )
-            ) {
-              // eslint-disable-next-line no-await-in-loop
-              await handler(channel, threadId);
-              return;
-            }
-          }
         }
 
         if (!tacoMatch) return;
@@ -148,7 +183,7 @@ const startRtmService = async (): Promise<void> => {
             match: RegExpMatchArray,
           ): Record<string, InsertLeaderboardData[]> => {
             const userId = match[1];
-            if (!acc[userId] && userId !== botId) {
+            if (!acc[userId]) {
               acc[userId] = new Array(tacoMatch.length).fill({
                 messageId: messageIdToUse,
                 userId,
@@ -168,48 +203,21 @@ const startRtmService = async (): Promise<void> => {
       }
     },
   );
-  const { self } = await rtm.start();
-  if (self && typeof self === 'object' && 'id' in self) {
-    // slack does not properly define the start() return type.
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    botId = self.id;
-  } else {
-    throw new Error(
-      `Could not obtain the botId received ${JSON.stringify(self)}`,
-    );
-  }
-};
 
-const startHealthCheck = async (): Promise<void> => {
-  const health = fastify();
-  const slackApiCheck = (): Promise<void> =>
-    rtm.connected
-      ? Promise.resolve()
-      : Promise.reject(new Error('Not connected with the slack API'));
-  const databaseCheck = async (): Promise<void> => {
-    const conn = getConnection();
-    if (!conn.isConnected) {
-      throw new Error('Not connected with the database');
-    }
-    await conn.query('select 1');
-  };
-  health.get('/.well-known/fastify/server-health', async (_, reply) => {
+  await new Promise<void>((resolve, reject) => {
     try {
-      await Promise.all([slackApiCheck(), databaseCheck()]);
+      app.listen(
+        parseInt(process.env.SERVER_PORT ?? '3000', 10) ?? 3000,
+        process.env.SERVER_HOST ?? 'localhost',
+        resolve,
+      );
     } catch (err) {
-      reply.code(500).send({ error: err.message, status: 'fail' });
-      return;
+      reject(err);
     }
-    reply.code(200).send({ status: 'ok' });
   });
-  await health.listen(
-    process.env.HEALCHECKER_PORT ?? 8080,
-    process.env.HEALCHECKER_HOST ?? 'localhost',
-  );
 };
 
-Promise.all([startRtmService(), startHealthCheck()]).catch((err): void => {
+Promise.all([startRtmService()]).catch((err): void => {
   // eslint-disable-next-line no-console
   console.error(err);
   process.exit(1);

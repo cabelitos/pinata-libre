@@ -8,7 +8,8 @@
     "build": "tsc",
     "check-types": "tsc --noEmit",
     "run-lint": "eslint --max-warnings=0 --ext .ts src",
-    "lint": "run-s check-types run-lint"
+    "lint": "run-s check-types run-lint",
+    "start-ngrok": "ngrok http 3000"
   },
   "devDependencies": {
     "@commitlint/cli": "^11.0.0",
@@ -25,6 +26,7 @@
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-prettier": "^3.3.0",
     "husky": "^4.3.6",
+    "ngrok": "^3.3.0",
     "nodemon": "^2.0.6",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.2.1",
@@ -39,8 +41,9 @@
     }
   },
   "dependencies": {
-    "@slack/rtm-api": "^5.0.5",
-    "fastify": "^3.9.2",
+    "@slack/events-api": "^2.3.4",
+    "@slack/web-api": "^5.14.0",
+    "express": "^4.17.1",
     "pg": "^8.5.1",
     "typeorm": "^0.2.29",
     "wait-for-postgres": "^1.5.3"

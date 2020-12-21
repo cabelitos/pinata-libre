@@ -27,9 +27,9 @@ services:
       - private
     secrets:
       - db-password
-      - slack-bot-token
+      - slack-sign-secret
     environment:
-      - SLACK_BOT_TOKEN_FILE=/run/secrets/slack-bot-token
+      - SLACK_SIGN_SECRET=/run/secrets/slack-sign-secret
       - TYPEORM_PASSWORD_FILE=/run/secrets/db-password
       - TYPEORM_CONNECTION=postgres
       - TYPEORM_PORT=5432
@@ -40,11 +40,11 @@ services:
       - TYPEORM_ENTITIES=./entities/*.js
       - TYPEORM_LOGGING=all
       - LEADERBOARD_LIMIT=10
-      - HEALCHECKER_HOST=localhost
-      - HEALCHECKER_PORT=80
+      - SERVER_HOST=localhost
+      - SERVER_PORT=80
     container_name: taco-libre
     healthcheck:
-      test: curl -f http://localhost/.well-known/fastify/server-health || exit 1
+      test: curl -f http://localhost/.well-known/server-health || exit 1
       interval: 1m
       timeout: 10s
       retries: 3
@@ -60,7 +60,7 @@ volumes:
   tacos-db-data:
 
 secrets:
-  slack-bot-token:
-    file: .docker-secret-slack-bot-token
+  slack-sign-secret:
+    file: .docker-secret-slack-sign-secret
   db-password:
     file: .docker-secret-db-password
