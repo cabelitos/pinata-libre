@@ -49,13 +49,7 @@
                 "argsIgnorePattern": "^_"
             }
         ],
-        "filenames/match-exported": [
-            "error",
-            [
-                null,
-                "kebab"
-            ]
-        ],
+        "filenames/match-exported": ["off"],
         "filenames/match-regex": [
             "error",
             "^[a-zA-Z]+(-[a-z]+)*(\\.[a-z]+)?$",

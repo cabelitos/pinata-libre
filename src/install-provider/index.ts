@@ -1,4 +1,3 @@
-// eslint-disable-next-line filenames/match-exported
 import { InstallProvider, Installation } from '@slack/oauth';
 
 import SlackInstallation from '../entities/SlackInstallation';
