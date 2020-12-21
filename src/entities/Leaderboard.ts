@@ -16,6 +16,7 @@ export interface LeaderboardData {
 }
 
 export interface InsertLeaderboardData {
+  emoji: string;
   messageId: string;
   teamId: string;
   userId: string;
@@ -41,6 +42,9 @@ export default class Leaderboard extends BaseEntity {
   @Column()
   @Index()
   teamId: string;
+
+  @Column()
+  emoji: string;
 
   static deleteTacos(
     tacosToDelete: string,

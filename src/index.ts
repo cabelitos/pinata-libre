@@ -216,7 +216,11 @@ const startRtmService = async (): Promise<void> => {
           ): Record<string, InsertLeaderboardData[]> => {
             const userId = match[1];
             if (!acc[userId]) {
-              acc[userId] = new Array(tacoMatch.length).fill({
+              acc[userId] = new Array<InsertLeaderboardData>(
+                tacoMatch.length,
+              ).fill({
+                // TODO - Support more emojis?
+                emoji: ':taco:',
                 messageId: messageIdToUse,
                 teamId,
                 userId,
