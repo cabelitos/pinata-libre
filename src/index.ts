@@ -2,8 +2,11 @@ import process from 'process';
 import { createConnection, getConnection } from 'typeorm';
 import express from 'express';
 import { createEventAdapter } from '@slack/events-api';
+import { WebClient } from '@slack/web-api';
 
 import Leaderboard, { InsertLeaderboardData } from './entities/Leaderboard';
+
+import installerProvider from './install-provider';
 
 interface Command {
   handler: (
@@ -54,15 +57,43 @@ const startRtmService = async (): Promise<void> => {
 
   app.post('/slack/events', slackEventListener);
 
+  app.get('/', async (_, res) => {
+    try {
+      const url = await installerProvider.generateInstallUrl({
+        scopes: ['app_mentions:read', 'channels:history', 'chat:write'],
+      });
+      res.send(
+        `<a href=${url}><img alt=""Add to Slack"" height="40" width="139" src="https://platform.slack-edge.com/img/add_to_slack.png" srcset="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x" /></a>`,
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.log(error);
+    }
+  });
+
+  app.get('/slack/oauth_redirect', async (req, res) => {
+    await installerProvider.handleCallback(req, res);
+  });
+
   const leaderboardLimit = getLeaderboardLimit();
 
-  const sendMessage = (
-    _text: string,
-    _channel: string,
-    _threadId: string | undefined,
-    _team: string,
+  const sendMessage = async (
+    text: string,
+    channel: string,
+    threadId: string | undefined,
+    teamId: string,
   ): Promise<void> => {
-    return Promise.resolve();
+    const { botToken } = await installerProvider.authorize({
+      enterpriseId: '',
+      isEnterpriseInstall: false,
+      teamId,
+    });
+    const web = new WebClient(botToken);
+    await web.chat.postMessage({
+      channel,
+      text,
+      thread_ts: threadId,
+    });
   };
 
   const commands: Command[] = [

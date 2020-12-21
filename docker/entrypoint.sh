@@ -24,6 +24,9 @@ function file_env() {
 
 file_env TYPEORM_PASSWORD
 file_env SLACK_SIGN_SECRET
+file_env SLACK_CLIENT_ID
+file_env SLACK_CLIENT_SECRET
+file_env SLACK_STORE_SECRET
 
 # Add npm bin directory to PATH in order to run wait-for-postgres
 PATH=$(npm bin):$PATH

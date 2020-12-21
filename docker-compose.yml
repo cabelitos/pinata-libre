@@ -28,8 +28,14 @@ services:
     secrets:
       - db-password
       - slack-sign-secret
+      - slack-client-id
+      - slack-client-secret
+      - slack-store-secret
     environment:
       - SLACK_SIGN_SECRET=/run/secrets/slack-sign-secret
+      - SLACK_CLIENT_ID=/run/secrets/slack-client-id
+      - SLACK_CLIENT_SECRET=/run/secrets/slack-client-secret
+      - SLACK_STORE_SECRET=/run/secrets/slack-store-secret
       - TYPEORM_PASSWORD_FILE=/run/secrets/db-password
       - TYPEORM_CONNECTION=postgres
       - TYPEORM_PORT=5432
@@ -60,6 +66,12 @@ volumes:
   tacos-db-data:
 
 secrets:
+  slack-client-id:
+    file: .docker-secret-slack-client-id
+  slack-client-secret:
+    file: .docker-secret-slack-client-secret
+  slack-store-secret:
+    file: .docker-secret-slack-store-secret
   slack-sign-secret:
     file: .docker-secret-slack-sign-secret
   db-password:
