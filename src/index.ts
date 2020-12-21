@@ -3,6 +3,7 @@ import { createConnection, getConnection } from 'typeorm';
 import express from 'express';
 import { createEventAdapter } from '@slack/events-api';
 import { WebClient } from '@slack/web-api';
+import type { AuthorizeResult } from '@slack/oauth';
 
 import Leaderboard, { InsertLeaderboardData } from './entities/Leaderboard';
 import AllowedEmoji from './entities/AllowedEmoji';
@@ -82,6 +83,14 @@ const startRtmService = async (): Promise<void> => {
 
   const leaderboardLimit = getLeaderboardLimit();
 
+  const getSlackBotInfo = async (teamId: string): Promise<AuthorizeResult> => {
+    return installerProvider.authorize({
+      enterpriseId: '',
+      isEnterpriseInstall: false,
+      teamId,
+    });
+  };
+
   const sendMessage = async (
     text: string,
     channel: string,
@@ -90,11 +99,7 @@ const startRtmService = async (): Promise<void> => {
     isEphemeral = false,
     user = '',
   ): Promise<void> => {
-    const { botToken } = await installerProvider.authorize({
-      enterpriseId: '',
-      isEnterpriseInstall: false,
-      teamId,
-    });
+    const { botToken } = await getSlackBotInfo(teamId);
     const web = new WebClient(botToken);
     if (isEphemeral) {
       await web.chat.postEphemeral({
@@ -312,13 +317,14 @@ const startRtmService = async (): Promise<void> => {
           { emojisNotAllowed: [], emojisToAdd: [] },
         );
 
+        const { botUserId } = await getSlackBotInfo(teamIdToUse);
         const emojiToSave = people.reduce(
           (
             acc: Record<string, InsertLeaderboardData[]>,
             match: RegExpMatchArray,
           ): Record<string, InsertLeaderboardData[]> => {
             const userId = match[1];
-            if (!acc[userId]) {
+            if (!acc[userId] && botUserId !== userId) {
               acc[userId] = emojisToAdd.map(emojiId => ({
                 emojiId,
                 messageId: messageIdToUse,
