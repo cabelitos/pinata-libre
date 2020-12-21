@@ -1,16 +1,16 @@
 version: "3.7"
 
 services:
-  tacos-db:
+  pinata-db:
     image: postgres:13-alpine
-    container_name: tacos-db-postgres
+    container_name: pinata-db-postgres
     restart: on-failure
     secrets:
       - db-password
     environment:
       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-      - POSTGRES_USER=tacos-db
-      - POSTGRES_DB=tacos-db
+      - POSTGRES_USER=pinata-db
+      - POSTGRES_DB=pinata-db
     expose:
       - '5432'
     ports:
@@ -18,11 +18,11 @@ services:
     networks:
       - private
     volumes:
-      - "tacos-db-data:/var/lib/postgresql/data"
+      - "pinata-db-data:/var/lib/postgresql/data"
 
-  taco-libre:
+  pinata-libre:
     build: .
-    image: taco-libre:latest
+    image: pinata-libre:latest
     networks:
       - private
     secrets:
@@ -39,16 +39,16 @@ services:
       - TYPEORM_PASSWORD_FILE=/run/secrets/db-password
       - TYPEORM_CONNECTION=postgres
       - TYPEORM_PORT=5432
-      - TYPEORM_USERNAME=tacos-db
-      - TYPEORM_DATABASE=tacos-db
+      - TYPEORM_USERNAME=pinata-db
+      - TYPEORM_DATABASE=pinata-db
       - TYPEORM_SYNCHRONIZE=1
-      - TYPEORM_HOST=tacos-db
+      - TYPEORM_HOST=pinata-db
       - TYPEORM_ENTITIES=./entities/*.js
       - TYPEORM_LOGGING=all
       - LEADERBOARD_LIMIT=10
       - SERVER_HOST=localhost
       - SERVER_PORT=80
-    container_name: taco-libre
+    container_name: pinata-libre
     healthcheck:
       test: curl -f http://localhost/.well-known/server-health || exit 1
       interval: 1m
@@ -57,13 +57,13 @@ services:
       start_period: 30s
     restart: always
     depends_on:
-      - tacos-db
+      - pinata-db
 
 networks:
   private:
 
 volumes:
-  tacos-db-data:
+  pinata-db-data:
 
 secrets:
   slack-client-id:

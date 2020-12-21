@@ -1,4 +1,4 @@
-# Taco Libre
+# Piñata Libre
 
 This project is a clone of [HeyTaco](https://cabelitosinc.slack.com/apps/A0J4UNFLN-heytaco) slack app, but open and free.
 
