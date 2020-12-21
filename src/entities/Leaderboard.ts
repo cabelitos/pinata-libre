@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 
 export interface LeaderboardData {
-  tacoCount: string;
+  awardCount: string;
   userId: string;
 }
 
@@ -46,26 +46,26 @@ export default class Leaderboard extends BaseEntity {
   @Column()
   emoji: string;
 
-  static deleteTacos(
-    tacosToDelete: string,
+  static deleteAwards(
+    messageIdToDelete: string,
     teamId: string,
     manager?: EntityManager,
   ): Promise<unknown> {
     return (manager ?? getManager()).softDelete(Leaderboard, {
-      messageId: tacosToDelete,
+      messageId: messageIdToDelete,
       teamId,
     });
   }
 
-  static async addTacos(
+  static async addAwards(
     people: InsertLeaderboardData[],
-    tacosToDelete: string | null,
+    messageIdToDelete: string | null,
     teamId: string,
   ): Promise<void> {
     return getManager().transaction(
       async (manager: EntityManager): Promise<void> => {
-        if (tacosToDelete) {
-          await Leaderboard.deleteTacos(tacosToDelete, teamId, manager);
+        if (messageIdToDelete) {
+          await Leaderboard.deleteAwards(messageIdToDelete, teamId, manager);
         }
         await manager
           .createQueryBuilder()
@@ -83,10 +83,10 @@ export default class Leaderboard extends BaseEntity {
   ): Promise<LeaderboardData[]> {
     const data = await getManager()
       .createQueryBuilder(Leaderboard, 'lb')
-      .select('count(*) as "tacoCount", lb.userId')
+      .select('count(*) as "awardCount", lb.userId')
       .where('lb.teamId = :teamId ', { teamId })
       .groupBy('lb.userId')
-      .orderBy('"tacoCount"', 'DESC')
+      .orderBy('"awardCount"', 'DESC')
       .limit(limit)
       .execute();
     return data ?? [];

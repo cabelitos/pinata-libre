@@ -28,7 +28,7 @@ const getLeaderboardLimit = (): number => {
   return Number.isNaN(limit) ? 10 : limit;
 };
 
-const tacoRegExp = /:taco:/gi;
+const emojiRegExp = /(:[\w-]+:)/gi;
 const peopleRegex = /<@(.+?)>/g;
 
 const startRtmService = async (): Promise<void> => {
@@ -107,7 +107,7 @@ const startRtmService = async (): Promise<void> => {
         const data = await Leaderboard.getLeaderboard(leaderboardLimit, team);
         if (!data.length) {
           await sendMessage(
-            'Leaderboard is empty. Starting sending tacos! :taco:',
+            'Leaderboard is empty. Starting sending recognitions! :taco: :burrito:',
             channel,
             threadId,
             team,
@@ -115,9 +115,9 @@ const startRtmService = async (): Promise<void> => {
           return;
         }
         let text = '';
-        data.forEach(({ tacoCount, userId }, i): void => {
-          text += `${i + 1}) <@${userId}> - ${tacoCount} ${
-            tacoCount === '1' ? 'taco' : 'tacos'
+        data.forEach(({ awardCount, userId }, i): void => {
+          text += `${i + 1}) <@${userId}> - ${awardCount} ${
+            awardCount === '1' ? 'recognition' : 'recognitions'
           }\n`;
         });
         await sendMessage(text, channel, threadId, team);
@@ -134,26 +134,26 @@ const startRtmService = async (): Promise<void> => {
     prevMessage: SlackMessage,
     teamId: string | undefined,
   ): Record<
-    'textToUse' | 'tacosToDelete' | 'messageIdToUse' | 'teamIdToUse',
+    'textToUse' | 'messageIdToDelete' | 'messageIdToUse' | 'teamIdToUse',
     string
   > => {
     let textToUse = originalText;
     let messageIdToUse = originalMessageId;
-    let tacosToDelete;
+    let messageIdToDelete;
     let teamIdToUse = teamId;
     if (subtype === 'message_changed') {
       textToUse = message.text;
       messageIdToUse = message.client_msg_id;
-      tacosToDelete = prevMessage.client_msg_id;
+      messageIdToDelete = prevMessage.client_msg_id;
       teamIdToUse = prevMessage.team;
     } else if (subtype === 'message_deleted') {
       textToUse = prevMessage.text;
-      tacosToDelete = prevMessage.client_msg_id;
+      messageIdToDelete = prevMessage.client_msg_id;
       teamIdToUse = prevMessage.team;
     }
     return {
+      messageIdToDelete: messageIdToDelete ?? '',
       messageIdToUse: messageIdToUse ?? '',
-      tacosToDelete: tacosToDelete ?? '',
       teamIdToUse: teamIdToUse ?? '',
       textToUse: textToUse ?? '',
     };
@@ -199,7 +199,7 @@ const startRtmService = async (): Promise<void> => {
       try {
         const {
           messageIdToUse,
-          tacosToDelete,
+          messageIdToDelete,
           textToUse,
           teamIdToUse,
         } = prepareMessageContext(
@@ -210,40 +210,37 @@ const startRtmService = async (): Promise<void> => {
           prevMessage,
           teamId,
         );
-        const tacoMatch = textToUse.match(tacoRegExp);
+        const emojisMatch = textToUse.match(emojiRegExp);
         const people = getMentionedPeople(textToUse);
         if (!people) return;
-        if (subtype === 'message_deleted' && tacosToDelete && tacoMatch) {
-          await Leaderboard.deleteTacos(tacosToDelete, teamIdToUse);
+        if (subtype === 'message_deleted' && messageIdToDelete && emojisMatch) {
+          await Leaderboard.deleteAwards(messageIdToDelete, teamIdToUse);
           return;
         }
 
-        if (!tacoMatch) return;
+        if (!emojisMatch) return;
 
-        const tacosToSave = people.reduce(
+        const emojiToSave = people.reduce(
           (
             acc: Record<string, InsertLeaderboardData[]>,
             match: RegExpMatchArray,
           ): Record<string, InsertLeaderboardData[]> => {
             const userId = match[1];
             if (!acc[userId]) {
-              acc[userId] = new Array<InsertLeaderboardData>(
-                tacoMatch.length,
-              ).fill({
-                // TODO - Support more emojis?
-                emoji: ':taco:',
+              acc[userId] = emojisMatch.map(emoji => ({
+                emoji,
                 messageId: messageIdToUse,
                 teamId: teamIdToUse,
                 userId,
-              });
+              }));
             }
             return acc;
           },
           {},
         );
-        await Leaderboard.addTacos(
-          Object.values(tacosToSave).flat(),
-          tacosToDelete,
+        await Leaderboard.addAwards(
+          Object.values(emojiToSave).flat(),
+          messageIdToDelete,
           teamIdToUse,
         );
       } catch (err) {
