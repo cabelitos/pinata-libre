@@ -5,6 +5,7 @@ import { createEventAdapter } from '@slack/events-api';
 import { WebClient } from '@slack/web-api';
 
 import Leaderboard, { InsertLeaderboardData } from './entities/Leaderboard';
+import AllowedEmoji from './entities/AllowedEmoji';
 
 import installerProvider from './install-provider';
 
@@ -13,14 +14,17 @@ interface Command {
     channel: string,
     threadId: string | undefined,
     team: string,
+    user: string,
+    args: string,
   ) => Promise<void>;
-  keyword: string;
+  regex: string;
 }
 
 interface SlackMessage {
   client_msg_id: string;
   team: string;
   text: string;
+  user: string;
 }
 
 const getLeaderboardLimit = (): number => {
@@ -83,6 +87,8 @@ const startRtmService = async (): Promise<void> => {
     channel: string,
     threadId: string | undefined,
     teamId: string,
+    isEphemeral = false,
+    user = '',
   ): Promise<void> => {
     const { botToken } = await installerProvider.authorize({
       enterpriseId: '',
@@ -90,6 +96,23 @@ const startRtmService = async (): Promise<void> => {
       teamId,
     });
     const web = new WebClient(botToken);
+    if (isEphemeral) {
+      await web.chat.postEphemeral({
+        blocks: [
+          {
+            text: {
+              text,
+              type: 'mrkdwn',
+            },
+            type: 'section',
+          },
+        ],
+        channel,
+        text: '',
+        user,
+      });
+      return;
+    }
     await web.chat.postMessage({
       channel,
       text,
@@ -116,13 +139,45 @@ const startRtmService = async (): Promise<void> => {
         }
         let text = '';
         data.forEach(({ awardCount, userId }, i): void => {
-          text += `${i + 1}) <@${userId}> - ${awardCount} ${
-            awardCount === '1' ? 'recognition' : 'recognitions'
+          text += `>${i + 1}) <@${userId}> - ${awardCount} ${
+            awardCount.toString() === '1' ? 'recognition' : 'recognitions'
           }\n`;
         });
         await sendMessage(text, channel, threadId, team);
       },
-      keyword: 'leaderboard',
+      regex: 'leaderboard\\s*',
+    },
+    {
+      handler: async (
+        channel: string,
+        threadId: string | undefined,
+        teamId: string,
+        user: string,
+        args: string,
+      ): Promise<void> => {
+        const emojisMatch = args.match(emojiRegExp);
+        if (!emojisMatch) {
+          return;
+        }
+        try {
+          await AllowedEmoji.makeAllowedEmojis(emojisMatch, teamId);
+        } catch {
+          try {
+            await sendMessage(
+              `Something wrong has ocurred and I could not add the emojis ${args} to the app. Sorry :expressionless:`,
+              channel,
+              threadId,
+              teamId,
+              true,
+              user,
+            );
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error(err);
+          }
+        }
+      },
+      regex: 'add-emoji\\s+(.+)*',
     },
   ];
 
@@ -133,29 +188,38 @@ const startRtmService = async (): Promise<void> => {
     message: SlackMessage,
     prevMessage: SlackMessage,
     teamId: string | undefined,
+    user: string | undefined,
   ): Record<
-    'textToUse' | 'messageIdToDelete' | 'messageIdToUse' | 'teamIdToUse',
+    | 'textToUse'
+    | 'messageIdToDelete'
+    | 'messageIdToUse'
+    | 'teamIdToUse'
+    | 'userIdToUse',
     string
   > => {
     let textToUse = originalText;
     let messageIdToUse = originalMessageId;
     let messageIdToDelete;
     let teamIdToUse = teamId;
+    let userIdToUse = user;
     if (subtype === 'message_changed') {
       textToUse = message.text;
       messageIdToUse = message.client_msg_id;
       messageIdToDelete = prevMessage.client_msg_id;
       teamIdToUse = prevMessage.team;
+      userIdToUse = message.user;
     } else if (subtype === 'message_deleted') {
       textToUse = prevMessage.text;
       messageIdToDelete = prevMessage.client_msg_id;
       teamIdToUse = prevMessage.team;
+      userIdToUse = prevMessage.user;
     }
     return {
       messageIdToDelete: messageIdToDelete ?? '',
       messageIdToUse: messageIdToUse ?? '',
       teamIdToUse: teamIdToUse ?? '',
       textToUse: textToUse ?? '',
+      userIdToUse: userIdToUse ?? '',
     };
   };
 
@@ -164,18 +228,25 @@ const startRtmService = async (): Promise<void> => {
 
   slackEvents.on(
     'app_mention',
-    async ({ text, channel, thread_ts: threadId, team }): Promise<void> => {
+    async ({
+      channel,
+      team,
+      text,
+      thread_ts: threadId,
+      user,
+    }): Promise<void> => {
       try {
         const people = getMentionedPeople(text);
         if (people.length !== 1) return;
         const botId = people[0][1];
         for (let i = 0; i < commands.length; i += 1) {
-          const { handler, keyword } = commands[i];
-          if (
-            text.match(new RegExp(`^\\s*<@${botId}>\\s+${keyword}\\s*$`, 'i'))
-          ) {
+          const { handler, regex } = commands[i];
+          const cmdMatch = text.match(
+            new RegExp(`^\\s*<@${botId}>\\s+${regex}$`, 'i'),
+          );
+          if (cmdMatch) {
             // eslint-disable-next-line no-await-in-loop
-            await handler(channel, threadId, team);
+            await handler(channel, threadId, team, user, cmdMatch[1]);
             return;
           }
         }
@@ -195,13 +266,16 @@ const startRtmService = async (): Promise<void> => {
       previous_message: prevMessage,
       message,
       team: teamId,
+      channel,
+      user,
     }): Promise<void> => {
       try {
         const {
-          messageIdToUse,
           messageIdToDelete,
-          textToUse,
+          messageIdToUse,
           teamIdToUse,
+          textToUse,
+          userIdToUse,
         } = prepareMessageContext(
           subtype,
           text,
@@ -209,6 +283,7 @@ const startRtmService = async (): Promise<void> => {
           message,
           prevMessage,
           teamId,
+          user,
         );
         const emojisMatch = textToUse.match(emojiRegExp);
         const people = getMentionedPeople(textToUse);
@@ -220,6 +295,23 @@ const startRtmService = async (): Promise<void> => {
 
         if (!emojisMatch) return;
 
+        const allowedEmojis = await AllowedEmoji.getAllowedEmojisByTeam(teamId);
+
+        const { emojisNotAllowed, emojisToAdd } = emojisMatch.reduce<{
+          emojisNotAllowed: string[];
+          emojisToAdd: string[];
+        }>(
+          (acc, emoji) => {
+            if (allowedEmojis.has(emoji)) {
+              acc.emojisToAdd.push(emoji);
+            } else {
+              acc.emojisNotAllowed.push(emoji);
+            }
+            return acc;
+          },
+          { emojisNotAllowed: [], emojisToAdd: [] },
+        );
+
         const emojiToSave = people.reduce(
           (
             acc: Record<string, InsertLeaderboardData[]>,
@@ -227,8 +319,8 @@ const startRtmService = async (): Promise<void> => {
           ): Record<string, InsertLeaderboardData[]> => {
             const userId = match[1];
             if (!acc[userId]) {
-              acc[userId] = emojisMatch.map(emoji => ({
-                emoji,
+              acc[userId] = emojisToAdd.map(emojiId => ({
+                emojiId,
                 messageId: messageIdToUse,
                 teamId: teamIdToUse,
                 userId,
@@ -243,6 +335,17 @@ const startRtmService = async (): Promise<void> => {
           messageIdToDelete,
           teamIdToUse,
         );
+        if (emojisNotAllowed.length) {
+          const emojis = emojisNotAllowed.join(' ');
+          await sendMessage(
+            `Hey, these emojis ${emojis} will not count as reward. Please add it by using the following command: \`@[bot-name] add-emoji ${emojis}\``,
+            channel,
+            '',
+            teamIdToUse,
+            true,
+            userIdToUse,
+          );
+        }
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error(err);

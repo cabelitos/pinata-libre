@@ -8,7 +8,11 @@ import {
   getManager,
   EntityManager,
   Index,
+  JoinColumn,
+  ManyToOne,
 } from 'typeorm';
+
+import AllowedEmoji from './AllowedEmoji';
 
 export interface LeaderboardData {
   awardCount: string;
@@ -16,7 +20,7 @@ export interface LeaderboardData {
 }
 
 export interface InsertLeaderboardData {
-  emoji: string;
+  emojiId: string;
   messageId: string;
   teamId: string;
   userId: string;
@@ -40,11 +44,17 @@ export default class Leaderboard extends BaseEntity {
   messageId: string;
 
   @Column()
-  @Index()
   teamId: string;
 
   @Column()
-  emoji: string;
+  emojiId: string;
+
+  @ManyToOne('AllowedEmoji')
+  @JoinColumn([
+    { name: 'emojiId', referencedColumnName: 'id' },
+    { name: 'teamId', referencedColumnName: 'teamId' },
+  ])
+  emoji: AllowedEmoji;
 
   static deleteAwards(
     messageIdToDelete: string,
