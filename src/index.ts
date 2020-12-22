@@ -363,7 +363,12 @@ const startRtmService = async (): Promise<void> => {
           messageIdToDelete,
           teamIdToUse,
         );
-        if (emojisNotAllowed.length) {
+        if (
+          emojisNotAllowed.length &&
+          // ignore this message if one tries to do @pinata-libre add-emoji ...
+          (people.length > 1 ||
+            (people.length === 1 && people[0][1] !== botUserId))
+        ) {
           const emojis = emojisNotAllowed.join(' ');
           await sendMessage(
             `Hey, these emojis ${emojis} will not count as reward. Please add it by using the following command: \`@[bot-name] add-emoji ${emojis}\``,
