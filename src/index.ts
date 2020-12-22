@@ -313,13 +313,13 @@ const startRtmService = async (): Promise<void> => {
         );
         const emojisMatch = textToUse.match(emojiRegExp);
         const people = getMentionedPeople(textToUse);
-        if (!people) return;
+        if (!people || !people.length) return;
         if (subtype === 'message_deleted' && messageIdToDelete && emojisMatch) {
           await Leaderboard.deleteAwards(messageIdToDelete, teamIdToUse);
           return;
         }
 
-        if (!emojisMatch) return;
+        if (!emojisMatch || !emojisMatch.length) return;
 
         const allowedEmojis = await AllowedEmoji.getAllowedEmojisByTeam(teamId);
 
