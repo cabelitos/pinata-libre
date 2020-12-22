@@ -321,7 +321,9 @@ const startRtmService = async (): Promise<void> => {
 
         if (!emojisMatch || !emojisMatch.length) return;
 
-        const allowedEmojis = await AllowedEmoji.getAllowedEmojisByTeam(teamId);
+        const allowedEmojis = await AllowedEmoji.getAllowedEmojisByTeam(
+          teamIdToUse,
+        );
 
         const { emojisNotAllowed, emojisToAdd } = emojisMatch.reduce<{
           emojisNotAllowed: string[];
