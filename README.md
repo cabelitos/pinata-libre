@@ -56,10 +56,7 @@ You're ready
 
 ![bot-demo](./demo/demo.gif)
 
-## TODO
+## TODO, bugs and new features
 
-* Add logging infra via winston or pico
-* k8s deploy?
-* Publish slack app?
-* Add more commands and features
-* Add complex bot messages, like showing leader board for the week, month, year
+Please visit [the issues page](https://github.com/cabelitos/pinata-libre/issues)
+
