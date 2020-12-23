@@ -62,7 +62,7 @@ const startRtmService = async (): Promise<void> => {
 
   app.post('/slack/events', slackEventListener);
 
-  app.get('/', async (_, res) => {
+  app.get('/install', async (_, res) => {
     try {
       const url = await installerProvider.generateInstallUrl({
         scopes: ['app_mentions:read', 'channels:history', 'chat:write'],
