@@ -31,7 +31,7 @@
     },
     "rules": {
         "camelcase": ["error", {
-          "allow": ["client_msg_id", "thread_ts", "user_id"]
+          "allow": ["client_msg_id", "thread_ts", "user_id", "alt_text", "image_url", "real_name", "image_192"]
         }],
         "import/extensions": ["error", "never"],
         "@typescript-eslint/consistent-type-assertions": [

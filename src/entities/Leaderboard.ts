@@ -17,6 +17,7 @@ import AllowedEmoji from './AllowedEmoji';
 export interface LeaderboardData {
   awardCount: string;
   userId: string;
+  emojiId: string;
 }
 
 export interface InsertLeaderboardData {
@@ -26,6 +27,12 @@ export interface InsertLeaderboardData {
   userId: string;
   givenByUserId: string;
 }
+
+const getLeaderboardLimit = (): number => {
+  const limit = parseInt(process.env.LEADERBOARD_LIMIT ?? '10', 10) ?? 10;
+  return Number.isNaN(limit) ? 10 : limit;
+};
+
 @Entity()
 export default class Leaderboard extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -62,6 +69,8 @@ export default class Leaderboard extends BaseEntity {
   @Index()
   givenByUserId: string;
 
+  public static readonly leaderboardLimit = getLeaderboardLimit();
+
   static deleteAwards(
     messageIdToDelete: string,
     teamId: string,
@@ -93,17 +102,14 @@ export default class Leaderboard extends BaseEntity {
     );
   }
 
-  static async getLeaderboard(
-    limit: number,
-    teamId: string,
-  ): Promise<LeaderboardData[]> {
+  static async getLeaderboard(teamId: string): Promise<LeaderboardData[]> {
     const data = await getManager()
       .createQueryBuilder(Leaderboard, 'lb')
-      .select('count(*) as "awardCount", lb.userId')
+      .select('count(*) as "awardCount", lb.userId, lb.emojiId')
       .where('lb.teamId = :teamId ', { teamId })
-      .groupBy('lb.userId')
+      .groupBy('lb.userId, lb.emojiId')
       .orderBy('"awardCount"', 'DESC')
-      .limit(limit)
+      .limit(Leaderboard.leaderboardLimit)
       .execute();
     return data ?? [];
   }

@@ -2,7 +2,7 @@ import process from 'process';
 import { createConnection, getConnection } from 'typeorm';
 import express from 'express';
 import { createEventAdapter } from '@slack/events-api';
-import { WebClient } from '@slack/web-api';
+import { WebClient, Block, KnownBlock } from '@slack/web-api';
 import type { AuthorizeResult } from '@slack/oauth';
 
 import Leaderboard, { InsertLeaderboardData } from './entities/Leaderboard';
@@ -10,6 +10,7 @@ import AllowedEmoji from './entities/AllowedEmoji';
 
 import installerProvider from './install-provider';
 import createHomeScreen from './home';
+import createLeaderboard from './utils/create-leaderboard';
 
 interface Command {
   handler: (
@@ -28,11 +29,6 @@ interface SlackMessage {
   text: string;
   user: string;
 }
-
-const getLeaderboardLimit = (): number => {
-  const limit = parseInt(process.env.LEADERBOARD_LIMIT ?? '10', 10) ?? 10;
-  return Number.isNaN(limit) ? 10 : limit;
-};
 
 const emojiRegExp = /(:[\w-]+:)/gi;
 const peopleRegex = /<@(.+?)>/g;
@@ -84,8 +80,6 @@ const startRtmService = async (): Promise<void> => {
     await installerProvider.handleCallback(req, res);
   });
 
-  const leaderboardLimit = getLeaderboardLimit();
-
   const getSlackBotInfo = async (teamId: string): Promise<AuthorizeResult> => {
     return installerProvider.authorize({
       enterpriseId: '',
@@ -95,7 +89,7 @@ const startRtmService = async (): Promise<void> => {
   };
 
   const sendMessage = async (
-    text: string,
+    content: string | (Block | KnownBlock)[],
     channel: string,
     threadId: string | undefined,
     teamId: string,
@@ -104,17 +98,21 @@ const startRtmService = async (): Promise<void> => {
   ): Promise<void> => {
     const { botToken } = await getSlackBotInfo(teamId);
     const web = new WebClient(botToken);
+    const blocks =
+      typeof content === 'string'
+        ? [
+            {
+              text: {
+                text: content,
+                type: 'mrkdwn',
+              },
+              type: 'section',
+            },
+          ]
+        : content;
     if (isEphemeral) {
       await web.chat.postEphemeral({
-        blocks: [
-          {
-            text: {
-              text,
-              type: 'mrkdwn',
-            },
-            type: 'section',
-          },
-        ],
+        blocks,
         channel,
         text: '',
         user,
@@ -122,8 +120,9 @@ const startRtmService = async (): Promise<void> => {
       return;
     }
     await web.chat.postMessage({
+      blocks,
       channel,
-      text,
+      text: '',
       thread_ts: threadId,
     });
   };
@@ -135,23 +134,9 @@ const startRtmService = async (): Promise<void> => {
         threadId: string | undefined,
         team: string,
       ): Promise<void> => {
-        const data = await Leaderboard.getLeaderboard(leaderboardLimit, team);
-        if (!data.length) {
-          await sendMessage(
-            'Leaderboard is empty. Starting sending recognitions! :taco: :burrito:',
-            channel,
-            threadId,
-            team,
-          );
-          return;
-        }
-        let text = '';
-        data.forEach(({ awardCount, userId }, i): void => {
-          text += `>${i + 1}) <@${userId}> - ${awardCount} ${
-            awardCount.toString() === '1' ? 'recognition' : 'recognitions'
-          }\n`;
-        });
-        await sendMessage(text, channel, threadId, team);
+        const { botToken } = await getSlackBotInfo(team);
+        const data = await createLeaderboard(team, botToken);
+        await sendMessage(data, channel, threadId, team);
       },
       regex: 'leaderboard\\s*',
     },
