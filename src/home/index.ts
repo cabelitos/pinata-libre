@@ -1,6 +1,7 @@
 import type { View } from '@slack/web-api';
 
 import Leaderboard from '../entities/Leaderboard';
+import AllowedEmoji from '../entities/AllowedEmoji';
 
 const createAwardText = (awards: number, given: boolean): string =>
   `You ${given ? 'gave' : 'received'} ${awards} ${
@@ -11,9 +12,10 @@ const createHomeScreen = async (
   teamId: string,
   userId: string,
 ): Promise<View> => {
-  const [myAwards, givenAwards] = await Promise.all([
+  const [myAwards, givenAwards, allowedEmojis] = await Promise.all([
     Leaderboard.count({ where: { teamId, userId } }),
     Leaderboard.count({ where: { givenByUserId: userId, teamId } }),
+    AllowedEmoji.find({ select: ['id'], where: { teamId } }),
   ]);
   return {
     blocks: [
@@ -54,6 +56,34 @@ const createHomeScreen = async (
           type: 'plain_text',
         },
         type: 'section',
+      },
+      {
+        text: {
+          emoji: true,
+          text: 'Allowed emojis for your team',
+          type: 'plain_text',
+        },
+        type: 'header',
+      },
+      {
+        type: 'divider',
+      },
+      {
+        text: {
+          emoji: true,
+          text: allowedEmojis.map(({ id }) => id).join(' '),
+          type: 'plain_text',
+        },
+        type: 'section',
+      },
+      {
+        elements: [
+          {
+            text: 'Use `@[bot-name] add-emoji :emojiCode:` to add more',
+            type: 'mrkdwn',
+          },
+        ],
+        type: 'context',
       },
     ],
     type: 'home',
