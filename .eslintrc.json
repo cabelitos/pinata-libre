@@ -31,7 +31,7 @@
     },
     "rules": {
         "camelcase": ["error", {
-          "allow": ["client_msg_id", "thread_ts", "user_id", "alt_text", "image_url", "real_name", "image_192"]
+          "allow": ["client_msg_id", "thread_ts", "user_id", "alt_text", "image_url", "real_name", "image_192", "team_id", "previous_message"]
         }],
         "import/extensions": ["error", "never"],
         "@typescript-eslint/consistent-type-assertions": [
@@ -87,14 +87,7 @@
                 "newlines-between": "always-and-inside-groups"
             }
         ],
-        "no-restricted-imports": [
-            "error",
-            {
-                "patterns": [
-                    "../../*"
-                ]
-            }
-        ],
+        "no-restricted-imports": "off",
         "sort-keys": "error",
         "strict": [
             0,

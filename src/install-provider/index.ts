@@ -1,4 +1,4 @@
-import { InstallProvider, Installation } from '@slack/oauth';
+import { AuthorizeResult, InstallProvider, Installation } from '@slack/oauth';
 
 import SlackInstallation from '../entities/SlackInstallation';
 
@@ -23,5 +23,14 @@ const installer = new InstallProvider({
   },
   stateSecret: process.env.SLACK_STORE_SECRET ?? '',
 });
+
+export const getSlackBotInfo = async (
+  teamId: string,
+): Promise<AuthorizeResult> =>
+  installer.authorize({
+    enterpriseId: '',
+    isEnterpriseInstall: false,
+    teamId,
+  });
 
 export default installer;
