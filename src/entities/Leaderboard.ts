@@ -105,11 +105,20 @@ export default class Leaderboard extends BaseEntity {
   static async getLeaderboard(teamId: string): Promise<LeaderboardData[]> {
     const data = await getManager()
       .createQueryBuilder(Leaderboard, 'lb')
-      .select('count(*) as "awardCount", lb.userId, lb.emojiId')
-      .where('lb.teamId = :teamId ', { teamId })
+      .select('lb.userId, lb.emojiId, count(*) as "awardCount"')
+      .innerJoin(
+        subQuery =>
+          subQuery
+            .select('count(*) as "awardCount", innerLb.userId')
+            .from(Leaderboard, 'innerLb')
+            .where('innerLb.teamId = :teamId ', { teamId })
+            .groupBy('innerLb.userId')
+            .orderBy('"awardCount"', 'DESC')
+            .limit(Leaderboard.leaderboardLimit),
+        'innerLb',
+        'innerLb.userId = lb.userId',
+      )
       .groupBy('lb.userId, lb.emojiId')
-      .orderBy('"awardCount"', 'DESC')
-      .limit(Leaderboard.leaderboardLimit)
       .execute();
     return data ?? [];
   }
