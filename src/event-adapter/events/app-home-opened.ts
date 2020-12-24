@@ -18,8 +18,8 @@ const appHomeOpened = async (
 ): Promise<void> => {
   try {
     if (tab !== 'home') return;
-    const view = await createHomeScreen(teamId, user);
     const { botToken } = await getSlackBotInfo(teamId);
+    const view = await createHomeScreen(teamId, user, botToken);
     await new WebClient(botToken).views.publish({
       user_id: user,
       view,

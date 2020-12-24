@@ -3,6 +3,8 @@ import type { View } from '@slack/web-api';
 import Leaderboard from '../entities/Leaderboard';
 import AllowedEmoji from '../entities/AllowedEmoji';
 
+import createLeaderboard from '../utils/create-leaderboard';
+
 const createAwardText = (awards: number, given: boolean): string =>
   `You ${given ? 'gave' : 'received'} ${awards} ${
     awards === 1 ? 'award' : 'awards'
@@ -11,7 +13,9 @@ const createAwardText = (awards: number, given: boolean): string =>
 const createHomeScreen = async (
   teamId: string,
   userId: string,
+  botToken: string | undefined,
 ): Promise<View> => {
+  const leaderboardData = await createLeaderboard(teamId, botToken);
   const [myAwards, givenAwards, allowedEmojis] = await Promise.all([
     Leaderboard.count({ where: { teamId, userId } }),
     Leaderboard.count({ where: { givenByUserId: userId, teamId } }),
@@ -85,6 +89,7 @@ const createHomeScreen = async (
         ],
         type: 'context',
       },
+      ...leaderboardData,
     ],
     type: 'home',
   };

@@ -13,6 +13,7 @@ interface LeaderboardCtx {
   profile: SlackProfile;
   emojis: { total: number; emojiId: string }[];
 }
+
 const sortByTotal = <T extends { total: number }>(
   { total: totalA }: T,
   { total: totalB }: T,
@@ -31,13 +32,37 @@ const awardsByEmoji = (arr: LeaderboardCtx['emojis']): string =>
       '',
     );
 
+const header = [
+  {
+    text: {
+      emoji: true,
+      text: 'Leaderboard :crown:',
+      type: 'plain_text',
+    },
+    type: 'header',
+  },
+  {
+    type: 'divider',
+  },
+];
+
 const createLeaderboard = async (
   team: string,
   botToken: string | undefined,
-): Promise<string | (Block | KnownBlock)[]> => {
+): Promise<(Block | KnownBlock)[]> => {
   const data = await Leaderboard.getLeaderboard(team);
   if (!data.length) {
-    return 'Leaderboard is empty. Starting sending recognitions! :taco: :burrito:';
+    return [
+      ...header,
+      {
+        text: {
+          text:
+            'Leaderboard is empty. Starting sending recognitions! :taco: :burrito:',
+          type: 'mrkdwn',
+        },
+        type: 'section',
+      },
+    ];
   }
   const client = new WebClient(botToken);
   const leaderBoardCtx: Record<string, LeaderboardCtx> = {};
@@ -97,16 +122,7 @@ const createLeaderboard = async (
         type: 'divider',
       },
     ]);
-  return [
-    {
-      text: {
-        text: 'Hey this is the current leaderboard!',
-        type: 'mrkdwn',
-      },
-      type: 'section',
-    },
-    ...leaderboardContent.flat(),
-  ];
+  return [...header, ...leaderboardContent.flat()];
 };
 
 export default createLeaderboard;
