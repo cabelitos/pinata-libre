@@ -3,6 +3,7 @@ import type { Express } from 'express';
 
 import installerProvider from '../install-provider';
 import { slackEvents } from '../event-adapter';
+import { slackInteractions } from '../interactions-adapter';
 
 const databaseCheck = async (): Promise<void> => {
   const conn = getConnection();
@@ -24,6 +25,8 @@ const createAppRoutes = (app: Express): void => {
   });
 
   app.post('/slack/events', slackEvents.requestListener());
+
+  app.post('/slack/interactions', slackInteractions.requestListener());
 
   app.get('/install', async (_, res) => {
     const url = await installerProvider.generateInstallUrl({

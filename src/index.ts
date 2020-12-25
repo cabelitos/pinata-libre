@@ -4,6 +4,7 @@ import express from 'express';
 
 import createAppRoutes from './routes';
 import createEventHandlers from './event-adapter';
+import createInteractionHandlers from './interactions-adapter';
 
 const startService = async (): Promise<void> => {
   await createConnection();
@@ -11,6 +12,7 @@ const startService = async (): Promise<void> => {
   const app = express();
   createAppRoutes(app);
   createEventHandlers();
+  createInteractionHandlers();
 
   await new Promise<void>((resolve, reject) => {
     try {

@@ -1,31 +1,21 @@
 import {
-  BaseEntity,
   Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  DeleteDateColumn,
   getManager,
   EntityManager,
-  Index,
   JoinColumn,
   ManyToOne,
 } from 'typeorm';
 
 import AllowedEmoji from './AllowedEmoji';
+import LeaderboardContent, {
+  InsertLeaderboardData,
+} from './LeaderboardContent';
+import PendingLeaderbordContent from './PendingLeaderbordContent';
 
 export interface LeaderboardData {
   awardCount: string;
   userId: string;
   emojiId: string;
-}
-
-export interface InsertLeaderboardData {
-  emojiId: string;
-  messageId: string;
-  teamId: string;
-  userId: string;
-  givenByUserId: string;
 }
 
 const getLeaderboardLimit = (): number => {
@@ -34,30 +24,7 @@ const getLeaderboardLimit = (): number => {
 };
 
 @Entity()
-export default class Leaderboard extends BaseEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column()
-  @Index()
-  userId: string;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @DeleteDateColumn()
-  deletedAt: Date | null;
-
-  @Column()
-  messageId: string;
-
-  @Column()
-  @Index()
-  teamId: string;
-
-  @Column()
-  emojiId: string;
-
+export default class Leaderboard extends LeaderboardContent {
   @ManyToOne('AllowedEmoji')
   @JoinColumn([
     { name: 'emojiId', referencedColumnName: 'id' },
@@ -65,33 +32,58 @@ export default class Leaderboard extends BaseEntity {
   ])
   emoji: AllowedEmoji;
 
-  @Column()
-  @Index()
-  givenByUserId: string;
-
   public static readonly leaderboardLimit = getLeaderboardLimit();
+
+  private static async deleteTransaction(
+    messageIdToDelete: string,
+    teamId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    await manager.softDelete(Leaderboard, {
+      messageId: messageIdToDelete,
+      teamId,
+    });
+    await PendingLeaderbordContent.deleteAwards(
+      messageIdToDelete,
+      teamId,
+      manager,
+    );
+  }
 
   static deleteAwards(
     messageIdToDelete: string,
     teamId: string,
     manager?: EntityManager,
   ): Promise<unknown> {
-    return (manager ?? getManager()).softDelete(Leaderboard, {
-      messageId: messageIdToDelete,
-      teamId,
-    });
+    return manager
+      ? Leaderboard.deleteTransaction(messageIdToDelete, teamId, manager)
+      : getManager().transaction(
+          (innerManager: EntityManager): Promise<void> =>
+            Leaderboard.deleteTransaction(
+              messageIdToDelete,
+              teamId,
+              innerManager,
+            ),
+        );
   }
 
   static async addAwards(
     people: InsertLeaderboardData[],
     messageIdToDelete: string | null,
     teamId: string,
+    pendingData: InsertLeaderboardData[],
   ): Promise<void> {
     return getManager().transaction(
       async (manager: EntityManager): Promise<void> => {
         if (messageIdToDelete) {
           await Leaderboard.deleteAwards(messageIdToDelete, teamId, manager);
         }
+        await PendingLeaderbordContent.insertPendingContent(
+          pendingData,
+          messageIdToDelete,
+          teamId,
+          manager,
+        );
         await manager
           .createQueryBuilder()
           .insert()

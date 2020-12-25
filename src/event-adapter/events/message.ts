@@ -2,13 +2,16 @@ import { getEmojisMatch, getMentionedPeople } from '../../utils/regex';
 import sendMessage from '../../utils/send-message';
 import { getSlackBotInfo } from '../../install-provider';
 import AllowedEmoji from '../../entities/AllowedEmoji';
-import Leaderboard, { InsertLeaderboardData } from '../../entities/Leaderboard';
+import Leaderboard from '../../entities/Leaderboard';
+import type { InsertLeaderboardData } from '../../entities/LeaderboardContent';
+import { createAddEmojiAttachment } from '../../interactions-adapter/events/add-emoji';
 
 interface SlackMessage {
   client_msg_id: string;
   team: string;
   text: string;
   user: string;
+  thread_ts: string | undefined;
 }
 
 interface EventBody {
@@ -20,6 +23,16 @@ interface EventBody {
   previous_message: SlackMessage;
   subtype: string | undefined;
   client_msg_id: string | undefined;
+  thread_ts: string | undefined;
+}
+interface EmojisToAdd {
+  emojisToSave: InsertLeaderboardData[];
+  emojisNotAllowed: InsertLeaderboardData[];
+}
+
+interface EmojisToByUser {
+  emojisToSaveByUserId: Record<string, InsertLeaderboardData[]>;
+  emojisToToSaveLaterByUserId: Record<string, InsertLeaderboardData[]>;
 }
 
 const prepareMessageContext = (
@@ -30,12 +43,14 @@ const prepareMessageContext = (
   prevMessage: SlackMessage,
   teamId: string | undefined,
   user: string | undefined,
+  threadId: string | undefined,
 ): Record<
   | 'textToUse'
   | 'messageIdToDelete'
   | 'messageIdToUse'
   | 'teamIdToUse'
-  | 'userIdToUse',
+  | 'userIdToUse'
+  | 'threadIdToUse',
   string
 > => {
   let textToUse = originalText;
@@ -43,23 +58,27 @@ const prepareMessageContext = (
   let messageIdToDelete;
   let teamIdToUse = teamId;
   let userIdToUse = user;
+  let threadIdToUse = threadId;
   if (subtype === 'message_changed') {
     textToUse = message.text;
     messageIdToUse = message.client_msg_id;
-    messageIdToDelete = prevMessage.client_msg_id;
-    teamIdToUse = prevMessage.team;
+    messageIdToDelete = prevMessage?.client_msg_id;
+    teamIdToUse = prevMessage?.team;
     userIdToUse = message.user;
+    threadIdToUse = message.thread_ts;
   } else if (subtype === 'message_deleted') {
-    textToUse = prevMessage.text;
-    messageIdToDelete = prevMessage.client_msg_id;
-    teamIdToUse = prevMessage.team;
-    userIdToUse = prevMessage.user;
+    textToUse = prevMessage?.text;
+    messageIdToDelete = prevMessage?.client_msg_id;
+    teamIdToUse = prevMessage?.team;
+    userIdToUse = prevMessage?.user;
+    threadIdToUse = message?.thread_ts;
   }
   return {
     messageIdToDelete: messageIdToDelete ?? '',
     messageIdToUse: messageIdToUse ?? '',
     teamIdToUse: teamIdToUse ?? '',
     textToUse: textToUse ?? '',
+    threadIdToUse: threadIdToUse ?? '',
     userIdToUse: userIdToUse ?? '',
   };
 };
@@ -73,6 +92,7 @@ const messageEvent = async ({
   team: teamId,
   channel,
   user,
+  thread_ts: threadId,
 }: EventBody): Promise<void> => {
   try {
     const {
@@ -81,6 +101,7 @@ const messageEvent = async ({
       teamIdToUse,
       textToUse,
       userIdToUse,
+      threadIdToUse,
     } = prepareMessageContext(
       subtype,
       text,
@@ -89,6 +110,7 @@ const messageEvent = async ({
       prevMessage,
       teamId,
       user,
+      threadId,
     );
     const emojisMatch = getEmojisMatch(textToUse);
     const people = getMentionedPeople(textToUse);
@@ -104,58 +126,72 @@ const messageEvent = async ({
       teamIdToUse,
     );
 
-    const { emojisNotAllowed, emojisToAdd } = emojisMatch.reduce<{
-      emojisNotAllowed: string[];
-      emojisToAdd: string[];
-    }>(
-      (acc, emoji) => {
-        if (allowedEmojis.has(emoji)) {
-          acc.emojisToAdd.push(emoji);
-        } else {
-          acc.emojisNotAllowed.push(emoji);
-        }
-        return acc;
-      },
-      { emojisNotAllowed: [], emojisToAdd: [] },
-    );
-
     const { botUserId, botToken } = await getSlackBotInfo(teamIdToUse);
-    const emojiToSave = people.reduce(
-      (
-        acc: Record<string, InsertLeaderboardData[]>,
-        match: RegExpMatchArray,
-      ): Record<string, InsertLeaderboardData[]> => {
+    const emojisNotAllowedSet = new Set<string>();
+    const { emojisToSaveByUserId, emojisToToSaveLaterByUserId } = people.reduce(
+      (acc: EmojisToByUser, match: RegExpMatchArray): EmojisToByUser => {
         const userId = match[1];
-        if (!acc[userId] && botUserId !== userId) {
-          acc[userId] = emojisToAdd.map(emojiId => ({
-            emojiId,
-            givenByUserId: userIdToUse,
-            messageId: messageIdToUse,
-            teamId: teamIdToUse,
-            userId,
-          }));
+        if (!acc.emojisToSaveByUserId[userId] && botUserId !== userId) {
+          const { emojisToSave, emojisNotAllowed } = emojisMatch.reduce(
+            (innerAcc: EmojisToAdd, emojiId: string): EmojisToAdd => {
+              const addData = {
+                emojiId,
+                givenByUserId: userIdToUse,
+                messageId: messageIdToUse,
+                teamId: teamIdToUse,
+                userId,
+              };
+              if (allowedEmojis.has(emojiId)) {
+                innerAcc.emojisToSave.push(addData);
+              } else {
+                emojisNotAllowedSet.add(emojiId);
+                innerAcc.emojisNotAllowed.push(addData);
+              }
+              return innerAcc;
+            },
+            { emojisNotAllowed: [], emojisToSave: [] },
+          );
+          acc.emojisToSaveByUserId[userId] = emojisToSave;
+          acc.emojisToToSaveLaterByUserId[userId] = emojisNotAllowed;
         }
         return acc;
       },
-      {},
+      { emojisToSaveByUserId: {}, emojisToToSaveLaterByUserId: {} },
     );
+    const emojisToSaveLater = Object.values(emojisToToSaveLaterByUserId).flat();
     await Leaderboard.addAwards(
-      Object.values(emojiToSave).flat(),
+      Object.values(emojisToSaveByUserId).flat(),
       messageIdToDelete,
       teamIdToUse,
+      emojisToSaveLater,
     );
     if (
-      emojisNotAllowed.length &&
+      emojisNotAllowedSet.size &&
       // ignore this message if one tries to do @pinata-libre add-emoji ...
       (people.length > 1 || (people.length === 1 && people[0][1] !== botUserId))
     ) {
-      const emojis = emojisNotAllowed.join(' ');
+      const emojis = Array.from(emojisNotAllowedSet);
       await sendMessage({
+        attachments: createAddEmojiAttachment(threadIdToUse, messageIdToUse),
         botToken,
         channel,
-        content: `Hey, these emojis ${emojis} will not count as reward. Please add it by using the following command: \`@[bot-name] add-emoji ${emojis}\``,
+        content: [
+          {
+            text: {
+              emoji: true,
+              text: `Hey, these emoji${
+                emojisToSaveLater.length === 1 ? '' : 's'
+              } ${emojis.join(
+                ' ',
+              )} will not count as reward. Would you like to add it to your team to count as an award?`,
+              type: 'plain_text',
+            },
+            type: 'section',
+          },
+        ],
         ephemeral: { user: userIdToUse },
         teamId: teamIdToUse,
+        threadId: threadIdToUse,
       });
     }
   } catch (err) {

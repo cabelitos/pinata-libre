@@ -2,9 +2,10 @@ import {
   BaseEntity,
   Entity,
   PrimaryColumn,
-  getRepository,
+  getManager,
   DeleteDateColumn,
   CreateDateColumn,
+  EntityManager,
 } from 'typeorm';
 import LRUCache from 'lru-cache';
 
@@ -27,18 +28,23 @@ export default class AllowedEmoji extends BaseEntity {
   static async makeAllowedEmojis(
     emojis: string[],
     teamId: string,
+    manager?: EntityManager,
   ): Promise<void> {
-    const repo = getRepository(AllowedEmoji);
+    const repo = (manager ?? getManager()).getRepository(AllowedEmoji);
     await repo.save(
       emojis.map(emoji => ({ deletedAt: null, id: emoji, teamId })),
     );
+    AllowedEmoji.clearCacheForTeam(teamId);
+  }
+
+  static clearCacheForTeam(teamId: string): void {
     AllowedEmoji.allowedEmojiCache.del(teamId);
   }
 
   static async getAllowedEmojisByTeam(teamId: string): Promise<Set<string>> {
     const cacheHit = AllowedEmoji.allowedEmojiCache.get(teamId);
     if (cacheHit) return cacheHit;
-    const allowedEmojis = await getRepository(AllowedEmoji).find({
+    const allowedEmojis = await getManager().find(AllowedEmoji, {
       select: ['id'],
       where: {
         teamId,

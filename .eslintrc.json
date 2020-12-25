@@ -30,8 +30,12 @@
         }
     },
     "rules": {
+        "no-shadow": "off",
+        "@typescript-eslint/no-shadow": [
+          "error"
+        ],
         "camelcase": ["error", {
-          "allow": ["client_msg_id", "thread_ts", "user_id", "alt_text", "image_url", "real_name", "image_192", "team_id", "previous_message"]
+          "allow": ["delete_original", "client_msg_id", "thread_ts", "user_id", "alt_text", "image_url", "real_name", "image_192", "team_id", "previous_message", "callback_id", "response_type", "replace_original"]
         }],
         "import/extensions": ["error", "never"],
         "@typescript-eslint/consistent-type-assertions": [
@@ -46,7 +50,8 @@
         "@typescript-eslint/no-unused-vars": [
             "error",
             {
-                "argsIgnorePattern": "^_"
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_"
             }
         ],
         "filenames/match-exported": ["off"],

@@ -1,8 +1,14 @@
-import { WebClient, Block, KnownBlock } from '@slack/web-api';
+import {
+  WebClient,
+  Block,
+  KnownBlock,
+  MessageAttachment,
+} from '@slack/web-api';
 
 import { getSlackBotInfo } from '../install-provider';
 
 interface SendMessageParams {
+  attachments?: MessageAttachment[];
   botToken?: string;
   content: string | (Block | KnownBlock)[];
   channel: string;
@@ -12,6 +18,7 @@ interface SendMessageParams {
 }
 
 const sendMessage = async ({
+  attachments,
   botToken,
   channel,
   content,
@@ -36,14 +43,17 @@ const sendMessage = async ({
       : content;
   if (ephemeral) {
     await web.chat.postEphemeral({
+      attachments,
       blocks,
       channel,
       text: '',
+      thread_ts: threadId,
       user: ephemeral.user,
     });
     return;
   }
   await web.chat.postMessage({
+    attachments,
     blocks,
     channel,
     text: '',
