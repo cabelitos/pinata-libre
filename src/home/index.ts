@@ -75,7 +75,7 @@ const createHomeScreen = async (
       {
         text: {
           emoji: true,
-          text: allowedEmojis.map(({ id }) => id).join(' '),
+          text: allowedEmojis.map(({ id }) => id).join(' ') || 'No emojis',
           type: 'plain_text',
         },
         type: 'section',
