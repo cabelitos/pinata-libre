@@ -7,7 +7,7 @@ import type { InsertLeaderboardData } from '../../entities/LeaderboardContent';
 import { createAddEmojiAttachment } from '../../interactions-adapter/events/add-emoji';
 
 interface SlackMessage {
-  client_msg_id: string;
+  ts: string;
   team: string;
   text: string;
   user: string;
@@ -22,7 +22,7 @@ interface EventBody {
   message: SlackMessage;
   previous_message: SlackMessage;
   subtype: string | undefined;
-  client_msg_id: string | undefined;
+  ts: string | undefined;
   thread_ts: string | undefined;
 }
 interface EmojisToAdd {
@@ -61,14 +61,14 @@ const prepareMessageContext = (
   let threadIdToUse = threadId;
   if (subtype === 'message_changed') {
     textToUse = message.text;
-    messageIdToUse = message.client_msg_id;
-    messageIdToDelete = prevMessage?.client_msg_id;
+    messageIdToUse = message.ts;
+    messageIdToDelete = prevMessage?.ts;
     teamIdToUse = prevMessage?.team;
     userIdToUse = message.user;
     threadIdToUse = message.thread_ts;
   } else if (subtype === 'message_deleted') {
     textToUse = prevMessage?.text;
-    messageIdToDelete = prevMessage?.client_msg_id;
+    messageIdToDelete = prevMessage?.ts;
     teamIdToUse = prevMessage?.team;
     userIdToUse = prevMessage?.user;
     threadIdToUse = message?.thread_ts;
@@ -86,7 +86,7 @@ const prepareMessageContext = (
 const messageEvent = async ({
   text,
   subtype,
-  client_msg_id: messageId,
+  ts: messageId,
   previous_message: prevMessage,
   message,
   team: teamId,
@@ -116,7 +116,7 @@ const messageEvent = async ({
     const people = getMentionedPeople(textToUse);
     if (!people || !people.length) return;
     if (subtype === 'message_deleted' && messageIdToDelete && emojisMatch) {
-      await Leaderboard.deleteAwards(messageIdToDelete, teamIdToUse);
+      await Leaderboard.deleteAwards(messageIdToDelete, teamIdToUse, channel);
       return;
     }
 
@@ -135,6 +135,7 @@ const messageEvent = async ({
           const { emojisToSave, emojisNotAllowed } = emojisMatch.reduce(
             (innerAcc: EmojisToAdd, emojiId: string): EmojisToAdd => {
               const addData = {
+                channelId: channel,
                 emojiId,
                 givenByUserId: userIdToUse,
                 messageId: messageIdToUse,
@@ -163,6 +164,7 @@ const messageEvent = async ({
       Object.values(emojisToSaveByUserId).flat(),
       messageIdToDelete,
       teamIdToUse,
+      channel,
       emojisToSaveLater,
     );
     if (

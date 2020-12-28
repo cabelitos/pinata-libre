@@ -35,6 +35,7 @@ const createAppRoutes = (app: Express): void => {
         'channels:history',
         'chat:write',
         'users.profile:read',
+        'reactions:read',
       ],
     });
     res.send(

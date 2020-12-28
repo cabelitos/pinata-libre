@@ -13,6 +13,7 @@ export interface InsertLeaderboardData {
   teamId: string;
   userId: string;
   givenByUserId: string;
+  channelId: string;
 }
 
 export default abstract class LeaderboardContent extends BaseEntity {
@@ -42,4 +43,7 @@ export default abstract class LeaderboardContent extends BaseEntity {
   @Column()
   @Index()
   givenByUserId: string;
+
+  @Column({ default: 'unknown', type: 'varchar' })
+  channelId: string;
 }

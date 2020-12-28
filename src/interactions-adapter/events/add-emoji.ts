@@ -11,6 +11,7 @@ export const addEmojiEventAction = new RegExp(
 
 interface EventBody {
   actions: { value: string }[];
+  channel: { id: string };
   callback_id: string;
   team: { id: string };
 }
@@ -52,6 +53,7 @@ export const createAddEmojiAttachment = (
 
 const addEmoji = async ({
   actions: [{ value }],
+  channel: { id: channelId },
   callback_id: callbackId,
   team: { id: teamId },
 }: EventBody): Promise<unknown> => {
@@ -61,9 +63,9 @@ const addEmoji = async ({
     let text = '>Ok, not adding as award :crying_cat_face:.';
     if (value === '1') {
       text = '>Great the award was added :tada:!';
-      await PendingLeaderboardContent.commitAwards(msgId, teamId);
+      await PendingLeaderboardContent.commitAwards(msgId, teamId, channelId);
     } else {
-      await PendingLeaderboardContent.deleteAwards(msgId, teamId);
+      await PendingLeaderboardContent.deleteAwards(msgId, teamId, channelId);
     }
     return {
       replace_original: true,

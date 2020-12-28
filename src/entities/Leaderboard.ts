@@ -37,15 +37,18 @@ export default class Leaderboard extends LeaderboardContent {
   private static async deleteTransaction(
     messageIdToDelete: string,
     teamId: string,
+    channelId: string,
     manager: EntityManager,
   ): Promise<void> {
     await manager.softDelete(Leaderboard, {
+      channelId,
       messageId: messageIdToDelete,
       teamId,
     });
     await PendingLeaderbordContent.deleteAwards(
       messageIdToDelete,
       teamId,
+      channelId,
       manager,
     );
   }
@@ -53,15 +56,22 @@ export default class Leaderboard extends LeaderboardContent {
   static deleteAwards(
     messageIdToDelete: string,
     teamId: string,
+    channelId: string,
     manager?: EntityManager,
   ): Promise<unknown> {
     return manager
-      ? Leaderboard.deleteTransaction(messageIdToDelete, teamId, manager)
+      ? Leaderboard.deleteTransaction(
+          messageIdToDelete,
+          teamId,
+          channelId,
+          manager,
+        )
       : getManager().transaction(
           (innerManager: EntityManager): Promise<void> =>
             Leaderboard.deleteTransaction(
               messageIdToDelete,
               teamId,
+              channelId,
               innerManager,
             ),
         );
@@ -71,17 +81,24 @@ export default class Leaderboard extends LeaderboardContent {
     people: InsertLeaderboardData[],
     messageIdToDelete: string | null,
     teamId: string,
+    channelId: string,
     pendingData: InsertLeaderboardData[],
   ): Promise<void> {
     return getManager().transaction(
       async (manager: EntityManager): Promise<void> => {
         if (messageIdToDelete) {
-          await Leaderboard.deleteAwards(messageIdToDelete, teamId, manager);
+          await Leaderboard.deleteAwards(
+            messageIdToDelete,
+            teamId,
+            channelId,
+            manager,
+          );
         }
         await PendingLeaderbordContent.insertPendingContent(
           pendingData,
           messageIdToDelete,
           teamId,
+          channelId,
           manager,
         );
         await manager
