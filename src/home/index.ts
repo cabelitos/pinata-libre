@@ -15,11 +15,16 @@ const createHomeScreen = async (
   userId: string,
   botToken: string | undefined,
 ): Promise<View> => {
-  const leaderboardData = await createLeaderboard(teamId, botToken);
-  const [myAwards, givenAwards, allowedEmojis] = await Promise.all([
+  const [
+    myAwards,
+    givenAwards,
+    allowedEmojis,
+    leaderboardData,
+  ] = await Promise.all([
     Leaderboard.count({ where: { teamId, userId } }),
     Leaderboard.count({ where: { givenByUserId: userId, teamId } }),
     AllowedEmoji.find({ select: ['id'], where: { teamId } }),
+    createLeaderboard(teamId, botToken),
   ]);
   return {
     blocks: [
