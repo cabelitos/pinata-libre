@@ -88,7 +88,7 @@ const createHomeScreen = async (
       {
         elements: [
           {
-            text: 'Use `@[bot-name] add-emoji :emojiCode:` to add more',
+            text: 'Use `@PinataLibre add-emoji :emojiCode:` to add more',
             type: 'mrkdwn',
           },
         ],
