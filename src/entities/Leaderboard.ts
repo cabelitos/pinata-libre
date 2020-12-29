@@ -4,6 +4,8 @@ import {
   EntityManager,
   JoinColumn,
   ManyToOne,
+  IsNull,
+  Not,
 } from 'typeorm';
 
 import AllowedEmoji from './AllowedEmoji';
@@ -34,6 +36,35 @@ export default class Leaderboard extends LeaderboardContent {
 
   public static readonly leaderboardLimit = getLeaderboardLimit();
 
+  static async deleteReactions(
+    teamId: string,
+    channelId: string,
+    messageId: string,
+    emojiId: string,
+    givenByUserId: string,
+  ): Promise<void> {
+    return getManager().transaction(
+      async (manager: EntityManager): Promise<void> => {
+        await manager.softDelete(Leaderboard, {
+          channelId,
+          emojiId,
+          givenByUserId,
+          messageId,
+          reactionId: Not(IsNull()),
+          teamId,
+        });
+        await PendingLeaderbordContent.deleteReactions(
+          teamId,
+          channelId,
+          messageId,
+          emojiId,
+          givenByUserId,
+          manager,
+        );
+      },
+    );
+  }
+
   private static async deleteTransaction(
     messageIdToDelete: string,
     teamId: string,
@@ -43,12 +74,14 @@ export default class Leaderboard extends LeaderboardContent {
     await manager.softDelete(Leaderboard, {
       channelId,
       messageId: messageIdToDelete,
+      reactionId: IsNull(),
       teamId,
     });
     await PendingLeaderbordContent.deleteAwards(
       messageIdToDelete,
       teamId,
       channelId,
+      undefined,
       manager,
     );
   }

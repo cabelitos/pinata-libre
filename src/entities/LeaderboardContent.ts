@@ -14,6 +14,7 @@ export interface InsertLeaderboardData {
   userId: string;
   givenByUserId: string;
   channelId: string;
+  reactionId: string | null;
 }
 
 export default abstract class LeaderboardContent extends BaseEntity {
@@ -46,4 +47,7 @@ export default abstract class LeaderboardContent extends BaseEntity {
 
   @Column({ default: 'unknown', type: 'varchar' })
   channelId: string;
+
+  @Column({ nullable: true, type: 'varchar' })
+  reactionId: string | null;
 }

@@ -2,10 +2,7 @@ import { WebClient } from '@slack/web-api';
 
 import createHomeScreen from '../../home';
 import { getSlackBotInfo } from '../../install-provider';
-
-interface EventBody {
-  team_id: string;
-}
+import type { EventRawBody } from '../../utils/types';
 
 interface EventInfo {
   user: string;
@@ -14,7 +11,7 @@ interface EventInfo {
 
 const appHomeOpened = async (
   { user, tab }: EventInfo,
-  { team_id: teamId }: EventBody,
+  { team_id: teamId }: EventRawBody,
 ): Promise<void> => {
   try {
     if (tab !== 'home') return;

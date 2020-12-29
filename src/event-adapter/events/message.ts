@@ -1,10 +1,6 @@
 import { getEmojisMatch, getMentionedPeople } from '../../utils/regex';
-import sendMessage from '../../utils/send-message';
-import { getSlackBotInfo } from '../../install-provider';
-import AllowedEmoji from '../../entities/AllowedEmoji';
 import Leaderboard from '../../entities/Leaderboard';
-import type { InsertLeaderboardData } from '../../entities/LeaderboardContent';
-import { createAddEmojiAttachment } from '../../interactions-adapter/events/add-emoji';
+import addEmojisToUser from './add-emojis-to-user';
 
 interface SlackMessage {
   ts: string;
@@ -24,15 +20,6 @@ interface EventBody {
   subtype: string | undefined;
   ts: string | undefined;
   thread_ts: string | undefined;
-}
-interface EmojisToAdd {
-  emojisToSave: InsertLeaderboardData[];
-  emojisNotAllowed: InsertLeaderboardData[];
-}
-
-interface EmojisToByUser {
-  emojisToSaveByUserId: Record<string, InsertLeaderboardData[]>;
-  emojisToToSaveLaterByUserId: Record<string, InsertLeaderboardData[]>;
 }
 
 const prepareMessageContext = (
@@ -119,83 +106,18 @@ const messageEvent = async ({
       await Leaderboard.deleteAwards(messageIdToDelete, teamIdToUse, channel);
       return;
     }
-
     if (!emojisMatch || !emojisMatch.length) return;
-
-    const allowedEmojis = await AllowedEmoji.getAllowedEmojisByTeam(
-      teamIdToUse,
-    );
-
-    const { botUserId, botToken } = await getSlackBotInfo(teamIdToUse);
-    const emojisNotAllowedSet = new Set<string>();
-    const { emojisToSaveByUserId, emojisToToSaveLaterByUserId } = people.reduce(
-      (acc: EmojisToByUser, match: RegExpMatchArray): EmojisToByUser => {
-        const userId = match[1];
-        if (!acc.emojisToSaveByUserId[userId] && botUserId !== userId) {
-          const { emojisToSave, emojisNotAllowed } = emojisMatch.reduce(
-            (innerAcc: EmojisToAdd, emojiId: string): EmojisToAdd => {
-              const addData = {
-                channelId: channel,
-                emojiId,
-                givenByUserId: userIdToUse,
-                messageId: messageIdToUse,
-                teamId: teamIdToUse,
-                userId,
-              };
-              if (allowedEmojis.has(emojiId)) {
-                innerAcc.emojisToSave.push(addData);
-              } else {
-                emojisNotAllowedSet.add(emojiId);
-                innerAcc.emojisNotAllowed.push(addData);
-              }
-              return innerAcc;
-            },
-            { emojisNotAllowed: [], emojisToSave: [] },
-          );
-          acc.emojisToSaveByUserId[userId] = emojisToSave;
-          acc.emojisToToSaveLaterByUserId[userId] = emojisNotAllowed;
-        }
-        return acc;
-      },
-      { emojisToSaveByUserId: {}, emojisToToSaveLaterByUserId: {} },
-    );
-    const emojisToSaveLater = Object.values(emojisToToSaveLaterByUserId).flat();
-    await Leaderboard.addAwards(
-      Object.values(emojisToSaveByUserId).flat(),
-      messageIdToDelete,
-      teamIdToUse,
+    await addEmojisToUser({
       channel,
-      emojisToSaveLater,
-    );
-    if (
-      emojisNotAllowedSet.size &&
-      // ignore this message if one tries to do @pinata-libre add-emoji ...
-      (people.length > 1 || (people.length === 1 && people[0][1] !== botUserId))
-    ) {
-      const emojis = Array.from(emojisNotAllowedSet);
-      await sendMessage({
-        attachments: createAddEmojiAttachment(threadIdToUse, messageIdToUse),
-        botToken,
-        channel,
-        content: [
-          {
-            text: {
-              emoji: true,
-              text: `Hey, these emoji${
-                emojisToSaveLater.length === 1 ? '' : 's'
-              } ${emojis.join(
-                ' ',
-              )} will not count as reward. Would you like to add it to your team to count as an award?`,
-              type: 'plain_text',
-            },
-            type: 'section',
-          },
-        ],
-        ephemeral: { user: userIdToUse },
-        teamId: teamIdToUse,
-        threadId: threadIdToUse,
-      });
-    }
+      emojisMatch,
+      givenByUserId: userIdToUse,
+      messageId: messageIdToUse,
+      messageIdToDelete,
+      people,
+      reactionId: null,
+      teamId: teamIdToUse,
+      threadId: threadIdToUse,
+    });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);

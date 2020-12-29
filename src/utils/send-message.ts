@@ -12,7 +12,7 @@ interface SendMessageParams {
   botToken?: string;
   content: string | (Block | KnownBlock)[];
   channel: string;
-  threadId?: string;
+  threadId?: string | null;
   teamId: string;
   ephemeral?: { user: string };
 }
@@ -57,7 +57,7 @@ const sendMessage = async ({
     blocks,
     channel,
     text: '',
-    thread_ts: threadId,
+    thread_ts: threadId || undefined,
   });
 };
 

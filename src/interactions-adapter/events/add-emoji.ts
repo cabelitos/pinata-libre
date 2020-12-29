@@ -17,16 +17,18 @@ interface EventBody {
 }
 
 export const crateAddEmojiCallbackId = (
-  threadId: string,
+  threadId: string | null,
   messageId: string,
+  reactionId: string | null,
 ): string =>
-  `${addEmojiEventPrefix}${separator}${
-    threadId || 'null'
+  `${addEmojiEventPrefix}${separator}${threadId || 'null'}${separator}${
+    reactionId || 'null'
   }${separator}${messageId}`;
 
 export const createAddEmojiAttachment = (
-  threadId: string,
+  threadId: string | null,
   messageId: string,
+  reactionId: string | null,
 ): MessageAttachment[] => [
   {
     actions: [
@@ -45,7 +47,7 @@ export const createAddEmojiAttachment = (
         value: '0',
       },
     ],
-    callback_id: crateAddEmojiCallbackId(threadId, messageId),
+    callback_id: crateAddEmojiCallbackId(threadId, messageId, reactionId),
     color: '#9a07f5',
     fallback: 'Could not display actions',
   },
@@ -57,15 +59,26 @@ const addEmoji = async ({
   callback_id: callbackId,
   team: { id: teamId },
 }: EventBody): Promise<unknown> => {
-  const [_, __, threadId, msgId] = callbackId.split('_');
+  const [_, __, threadId, reactionId, msgId] = callbackId.split('_');
   const finalThreadId = threadId === 'null' ? undefined : threadId;
+  const finalReactionId = reactionId === 'null' ? undefined : reactionId;
   try {
     let text = '>Ok, not adding as award :crying_cat_face:.';
     if (value === '1') {
       text = '>Great the award was added :tada:!';
-      await PendingLeaderboardContent.commitAwards(msgId, teamId, channelId);
+      await PendingLeaderboardContent.commitAwards(
+        msgId,
+        teamId,
+        channelId,
+        finalReactionId,
+      );
     } else {
-      await PendingLeaderboardContent.deleteAwards(msgId, teamId, channelId);
+      await PendingLeaderboardContent.deleteAwards(
+        msgId,
+        teamId,
+        channelId,
+        finalReactionId,
+      );
     }
     return {
       replace_original: true,
