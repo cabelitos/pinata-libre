@@ -1,4 +1,4 @@
-const emojiRegExp = /(:[\w-]+:)/gi;
+const emojiRegExp = /(:['\w-+]+:)/gi;
 const peopleRegex = /<@(.+?)>/g;
 
 export const getMentionedPeople = (text: string): RegExpMatchArray[] =>
