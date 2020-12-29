@@ -48,9 +48,7 @@
     "@slack/web-api": "^5.14.0",
     "express": "^4.17.1",
     "lru-cache": "^6.0.0",
-    "pg": "^8.5.1",
     "sqlite3": "^5.0.0",
-    "typeorm": "^0.2.29",
-    "wait-for-postgres": "^1.5.3"
+    "typeorm": "^0.2.29"
   }
 }
