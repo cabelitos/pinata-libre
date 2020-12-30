@@ -31,9 +31,29 @@ export default class AllowedEmoji extends BaseEntity {
     manager?: EntityManager,
   ): Promise<void> {
     const repo = (manager ?? getManager()).getRepository(AllowedEmoji);
-    await repo.save(
-      emojis.map(emoji => ({ deletedAt: null, id: emoji, teamId })),
-    );
+    const alreadyPresent = new Set<string>();
+    await repo
+      .createQueryBuilder()
+      .insert()
+      .into(AllowedEmoji)
+      .values(
+        emojis.reduce(
+          (
+            acc: Partial<AllowedEmoji>[],
+            emoji: string,
+          ): Partial<AllowedEmoji>[] => {
+            if (!alreadyPresent.has(emoji)) {
+              alreadyPresent.add(emoji);
+              acc.push({ id: emoji, teamId });
+            }
+            return acc;
+          },
+          [],
+        ),
+      )
+      .onConflict('("id", "teamId") DO UPDATE SET "deletedAt" = NULL')
+      .updateEntity(false)
+      .execute();
     AllowedEmoji.clearCacheForTeam(teamId);
   }
 

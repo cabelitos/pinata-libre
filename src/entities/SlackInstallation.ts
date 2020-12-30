@@ -31,7 +31,7 @@ export default class SlackInstallation extends BaseEntity {
     const repo = getRepository(SlackInstallation);
     const slackInstall = new SlackInstallation();
     repo.merge(slackInstall, { id: teamId, installation });
-    return repo.save(slackInstall);
+    return repo.save(slackInstall, { reload: false });
   }
 
   static async getInstallation(teamId: string): Promise<Installation> {

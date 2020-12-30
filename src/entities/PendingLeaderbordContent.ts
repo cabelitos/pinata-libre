@@ -106,6 +106,7 @@ export default class PendingLeaderboardContent extends LeaderboardContent {
       .insert()
       .into(PendingLeaderboardContent)
       .values(data)
+      .updateEntity(false)
       .execute();
   }
 }

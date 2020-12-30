@@ -139,6 +139,7 @@ export default class Leaderboard extends LeaderboardContent {
           .insert()
           .into(Leaderboard)
           .values(people)
+          .updateEntity(false)
           .execute();
       },
     );
