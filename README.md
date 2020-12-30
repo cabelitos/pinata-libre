@@ -10,6 +10,7 @@ This project is a clone of [HeyTaco](https://www.heytaco.chat/) slack app, but o
 * Unified leaderboard for every channel.
 * Supports any emoji (as long that it was added before. See _Bot commands_).
 * Emoji reactions counts as awards.
+* Awards to a slack group will be distributed to all users of that group.
 
 ## Distributing awards
 

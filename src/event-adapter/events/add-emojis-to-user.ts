@@ -24,7 +24,7 @@ interface AddEmojisToUserArgs {
   givenByUserId: string;
   messageId: string;
   messageIdToDelete: string | null;
-  people: RegExpMatchArray[];
+  people: string[];
   reactionId: string | null;
   teamId: string;
   threadId: string | null;
@@ -46,8 +46,7 @@ const addEmojisToUser = async ({
   const { botUserId, botToken } = botInfo ?? (await getSlackBotInfo(teamId));
   const emojisNotAllowedSet = new Set<string>();
   const { emojisToSaveByUserId, emojisToToSaveLaterByUserId } = people.reduce(
-    (acc: EmojisToByUser, match: RegExpMatchArray): EmojisToByUser => {
-      const userId = match[1];
+    (acc: EmojisToByUser, userId: string): EmojisToByUser => {
       if (!acc.emojisToSaveByUserId[userId] && botUserId !== userId) {
         const { emojisToSave, emojisNotAllowed } = emojisMatch.reduce(
           (innerAcc: EmojisToAdd, emojiId: string): EmojisToAdd => {

@@ -76,7 +76,9 @@ const createReactionEvent = (
       In case someone gives an award the the receiving user
       reacts this message. Do not count it as award.
     */
-    const people = getMentionedPeople(text).filter(([_, id]) => id !== user);
+    const people = (await getMentionedPeople(text, botInfo.botToken)).filter(
+      id => id !== user,
+    );
     // If not an award, just ignore.
     if (!people.length || !emojisMatch?.length) return;
     await addEmojisToUser({

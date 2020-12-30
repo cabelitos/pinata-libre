@@ -1,6 +1,7 @@
 import { getEmojisMatch, getMentionedPeople } from '../../utils/regex';
 import Leaderboard from '../../entities/Leaderboard';
 import addEmojisToUser from './add-emojis-to-user';
+import { getSlackBotInfo } from '../../install-provider';
 
 interface SlackMessage {
   ts: string;
@@ -8,6 +9,7 @@ interface SlackMessage {
   text: string;
   user: string;
   thread_ts: string | undefined;
+  subtype: string | undefined;
 }
 
 interface EventBody {
@@ -99,8 +101,12 @@ const messageEvent = async ({
       user,
       threadId,
     );
+    if (subtype === 'message_changed' || message?.subtype === 'bot_message') {
+      return;
+    }
+    const botInfo = await getSlackBotInfo(teamIdToUse);
     const emojisMatch = getEmojisMatch(textToUse);
-    const people = getMentionedPeople(textToUse);
+    const people = await getMentionedPeople(textToUse, botInfo.botToken);
     if (!people || !people.length) return;
     if (subtype === 'message_deleted' && messageIdToDelete && emojisMatch) {
       await Leaderboard.deleteAwards(messageIdToDelete, teamIdToUse, channel);
@@ -108,6 +114,7 @@ const messageEvent = async ({
     }
     if (!emojisMatch || !emojisMatch.length) return;
     await addEmojisToUser({
+      botInfo,
       channel,
       emojisMatch,
       givenByUserId: userIdToUse,

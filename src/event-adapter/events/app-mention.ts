@@ -75,9 +75,9 @@ const appMention = async ({
   user,
 }: EventInfo): Promise<void> => {
   try {
-    const people = getMentionedPeople(text);
+    const people = await getMentionedPeople(text);
     if (people.length !== 1) return;
-    const botId = people[0][1];
+    const botId = people[0];
     for (let i = 0; i < commands.length; i += 1) {
       const { handler, regex } = commands[i];
       const cmdMatch = text.match(
