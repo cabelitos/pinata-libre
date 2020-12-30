@@ -13,17 +13,45 @@ const appHomeOpened = async (
   { user, tab }: EventInfo,
   { team_id: teamId }: EventRawBody,
 ): Promise<void> => {
+  let botToken: string | undefined = '';
+  const client = new WebClient();
   try {
     if (tab !== 'home') return;
-    const { botToken } = await getSlackBotInfo(teamId);
+    ({ botToken } = await getSlackBotInfo(teamId));
     const view = await createHomeScreen(teamId, user, botToken);
-    await new WebClient(botToken).views.publish({
+    await client.views.publish({
+      token: botToken,
       user_id: user,
       view,
     });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);
+    await client.views.publish({
+      token: botToken,
+      user_id: user,
+      view: {
+        blocks: [
+          {
+            text: {
+              emoji: true,
+              text: 'Error',
+              type: 'plain_text',
+            },
+            type: 'header',
+          },
+          {
+            text: {
+              emoji: true,
+              text: 'Could not load the homescreen :crying_cat_face:.',
+              type: 'plain_text',
+            },
+            type: 'section',
+          },
+        ],
+        type: 'home',
+      },
+    });
   }
 };
 
