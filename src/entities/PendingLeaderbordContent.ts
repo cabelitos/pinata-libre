@@ -63,9 +63,10 @@ export default class PendingLeaderboardContent extends LeaderboardContent {
           reactionIdQuery = 'AND reactionId = ?';
         }
         await manager.query(
-          `INSERT OR REPLACE INTO allowed_emoji (id, teamId, createdAt, deletedAt) SELECT \
+          `INSERT INTO allowed_emoji (id, teamId, createdAt, deletedAt) SELECT \
           emojiId AS id, teamId, datetime("now"), NULL from pending_leaderboard_content \
-          WHERE teamId = ? AND messageId = ? AND channelId = ? AND deletedAt IS NULL ${reactionIdQuery} GROUP BY emojiId`,
+          WHERE teamId = ? AND messageId = ? AND channelId = ? AND deletedAt IS NULL ${reactionIdQuery} GROUP BY emojiId \
+          ON CONFLICT (id, teamId) DO UPDATE SET deletedAt = NULL`,
           queryParams,
         );
         await manager.query(
