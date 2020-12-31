@@ -32,7 +32,7 @@ const commands: Command[] = [
       user: string,
     ): Promise<void> => {
       const { botToken } = await getSlackBotInfo(teamId);
-      const content = await createLeaderboard(teamId, botToken);
+      const content = await createLeaderboard(teamId, botToken, true);
       await sendMessage({
         botToken,
         channel,

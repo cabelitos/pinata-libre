@@ -51,80 +51,88 @@ const header = [
 const createLeaderboard = async (
   team: string,
   botToken: string | undefined,
+  addDismissButton: boolean,
 ): Promise<(Block | KnownBlock)[]> => {
   const data = await Leaderboard.getLeaderboard(team);
+  const leaderboard: (Block | KnownBlock)[] = [...header];
   if (!data.length) {
-    return [
-      ...header,
-      {
-        text: {
-          text:
-            'Leaderboard is empty. Starting sending recognitions! :taco: :burrito:',
-          type: 'mrkdwn',
-        },
-        type: 'section',
+    leaderboard.push({
+      text: {
+        text:
+          'Leaderboard is empty. Starting sending recognitions! :taco: :burrito:',
+        type: 'mrkdwn',
       },
-    ];
-  }
-  const client = new WebClient(botToken);
-  const leaderBoardCtx: Record<string, LeaderboardCtx> = {};
+      type: 'section',
+    });
+  } else {
+    const client = new WebClient(botToken);
+    const leaderBoardCtx: Record<string, LeaderboardCtx> = {};
 
-  await Promise.all(
-    data.map(
-      async ({ userId, awardCount, emojiId }): Promise<void> => {
-        if (!leaderBoardCtx[userId]) {
-          leaderBoardCtx[userId] = {
-            emojis: [],
-            profile: (null as unknown) as SlackProfile,
-            total: 0,
-          };
-          const { ok, profile } = await client.users.profile.get({
-            user: userId,
-          });
-          if (!ok) {
-            throw new Error(`Could not fetch profile for user ${userId}`);
+    await Promise.all(
+      data.map(
+        async ({ userId, awardCount, emojiId }): Promise<void> => {
+          if (!leaderBoardCtx[userId]) {
+            leaderBoardCtx[userId] = {
+              emojis: [],
+              profile: (null as unknown) as SlackProfile,
+              total: 0,
+            };
+            const { ok, profile } = await client.users.profile.get({
+              user: userId,
+            });
+            if (!ok) {
+              throw new Error(`Could not fetch profile for user ${userId}`);
+            }
+            leaderBoardCtx[userId].profile = profile as SlackProfile;
           }
-          leaderBoardCtx[userId].profile = profile as SlackProfile;
-        }
-        const parsedNumber = parseInt(awardCount, 10);
-        leaderBoardCtx[userId].total += parsedNumber;
-        leaderBoardCtx[userId].emojis.push({
-          emojiId,
-          total: parsedNumber,
-        });
-      },
-    ),
-  );
-  const leaderboardContent = Object.values(leaderBoardCtx)
-    .sort(sortByTotal)
-    .map(({ total, emojis, profile: { real_name: name, image_192: image } }): (
-      | Block
-      | KnownBlock
-    )[] => [
-      {
-        accessory: {
-          alt_text: `${name} user photo`,
-          image_url: image,
-          type: 'image',
+          const parsedNumber = parseInt(awardCount, 10);
+          leaderBoardCtx[userId].total += parsedNumber;
+          leaderBoardCtx[userId].emojis.push({
+            emojiId,
+            total: parsedNumber,
+          });
         },
-        text: {
-          text: `*${name}*\n\nEmojis Awarded:\n\n${awardsByEmoji(emojis)}`,
-          type: 'mrkdwn',
+      ),
+    );
+    Object.values(leaderBoardCtx)
+      .sort(sortByTotal)
+      .forEach(
+        ({
+          total,
+          emojis,
+          profile: { real_name: name, image_192: image },
+        }): void => {
+          leaderboard.push(
+            {
+              accessory: {
+                alt_text: `${name} user photo`,
+                image_url: image,
+                type: 'image',
+              },
+              text: {
+                text: `*${name}*\n\nEmojis Awarded:\n\n${awardsByEmoji(
+                  emojis,
+                )}`,
+                type: 'mrkdwn',
+              },
+              type: 'section',
+            },
+            {
+              text: {
+                text: `Total: ${total} award${total === 1 ? '' : 's'}`,
+                type: 'mrkdwn',
+              },
+              type: 'section',
+            },
+            {
+              type: 'divider',
+            },
+          );
         },
-        type: 'section',
-      },
-      {
-        text: {
-          text: `Total: ${total} award${total === 1 ? '' : 's'}`,
-          type: 'mrkdwn',
-        },
-        type: 'section',
-      },
-      {
-        type: 'divider',
-      },
-    ]);
-  return [...header, ...leaderboardContent.flat(), dismissLeaderboardBlock];
+      );
+  }
+  if (addDismissButton) leaderboard.push(dismissLeaderboardBlock);
+  return leaderboard;
 };
 
 export default createLeaderboard;

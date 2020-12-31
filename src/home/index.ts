@@ -24,7 +24,7 @@ const createHomeScreen = async (
     Leaderboard.count({ where: { teamId, userId } }),
     Leaderboard.count({ where: { givenByUserId: userId, teamId } }),
     AllowedEmoji.find({ select: ['id'], where: { teamId } }),
-    createLeaderboard(teamId, botToken),
+    createLeaderboard(teamId, botToken, false),
   ]);
   return {
     blocks: [
