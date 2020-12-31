@@ -29,10 +29,18 @@ const commands: Command[] = [
       channel: string,
       threadId: string | undefined,
       teamId: string,
+      user: string,
     ): Promise<void> => {
       const { botToken } = await getSlackBotInfo(teamId);
       const content = await createLeaderboard(teamId, botToken);
-      await sendMessage({ botToken, channel, content, teamId, threadId });
+      await sendMessage({
+        botToken,
+        channel,
+        content,
+        ephemeral: { user },
+        teamId,
+        threadId,
+      });
     },
     regex: 'leaderboard\\s*',
   },

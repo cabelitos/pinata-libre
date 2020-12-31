@@ -4,12 +4,13 @@ import addEmojisToUser from './add-emojis-to-user';
 import { getSlackBotInfo } from '../../install-provider';
 
 interface SlackMessage {
-  ts: string;
+  is_ephemeral: boolean;
+  subtype: string | undefined;
   team: string;
   text: string;
-  user: string;
   thread_ts: string | undefined;
-  subtype: string | undefined;
+  ts: string;
+  user: string;
 }
 
 interface EventBody {
@@ -83,6 +84,8 @@ const messageEvent = async ({
   user,
   thread_ts: threadId,
 }: EventBody): Promise<void> => {
+  // nothing to do...
+  if (!text && !prevMessage && !message) return;
   try {
     const {
       messageIdToDelete,
@@ -101,7 +104,9 @@ const messageEvent = async ({
       user,
       threadId,
     );
-    if (subtype === 'message_changed' || message?.subtype === 'bot_message') {
+    const isEphemeral =
+      message?.is_ephemeral ?? prevMessage?.is_ephemeral ?? false;
+    if (isEphemeral || message?.subtype === 'bot_message') {
       return;
     }
     const botInfo = await getSlackBotInfo(teamIdToUse);

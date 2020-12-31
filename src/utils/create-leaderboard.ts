@@ -3,6 +3,8 @@ import type { Block, KnownBlock } from '@slack/web-api';
 
 import Leaderboard from '../entities/Leaderboard';
 
+import { dismissLeaderboardBlock } from '../interactions-adapter/events/dismiss-leaderboard';
+
 interface SlackProfile {
   real_name: string;
   image_192: string;
@@ -122,7 +124,7 @@ const createLeaderboard = async (
         type: 'divider',
       },
     ]);
-  return [...header, ...leaderboardContent.flat()];
+  return [...header, ...leaderboardContent.flat(), dismissLeaderboardBlock];
 };
 
 export default createLeaderboard;
