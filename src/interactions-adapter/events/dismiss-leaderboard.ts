@@ -1,3 +1,5 @@
+import type { InteractionResponseHandler } from '../../utils/types';
+
 const actionId = 'dismissLeaderboard';
 
 export const dismissLeaderboardAction = { actionId };
@@ -18,10 +20,11 @@ export const dismissLeaderboardBlock = {
   type: 'actions',
 };
 
-type Handler = (arg: { delete_original: boolean }) => void;
-
-const dismissLeaderboard = (_: unknown, respond: Handler): void => {
-  respond({ delete_original: true });
+const dismissLeaderboard = (
+  _: unknown,
+  response: InteractionResponseHandler,
+): void => {
+  response({ delete_original: true });
 };
 
 export default dismissLeaderboard;

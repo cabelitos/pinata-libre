@@ -1,4 +1,4 @@
-import { createAddEmojiAttachment } from '../../interactions-adapter/events/add-emoji';
+import { createAddEmojiInteractions } from '../../interactions-adapter/events/add-emoji';
 import sendMessage from '../../utils/send-message';
 import { getSlackBotInfo } from '../../install-provider';
 import AllowedEmoji from '../../entities/AllowedEmoji';
@@ -91,7 +91,6 @@ const addEmojisToUser = async ({
   ) {
     const emojis = Array.from(emojisNotAllowedSet);
     await sendMessage({
-      attachments: createAddEmojiAttachment(threadId, messageId, reactionId),
       botToken,
       channel,
       content: [
@@ -107,6 +106,7 @@ const addEmojisToUser = async ({
           },
           type: 'section',
         },
+        ...createAddEmojiInteractions(threadId, messageId, reactionId),
       ],
       ephemeral: { user: givenByUserId },
       teamId,
