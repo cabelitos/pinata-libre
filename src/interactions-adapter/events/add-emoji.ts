@@ -60,42 +60,65 @@ export const createAddEmojiInteractions = (
   },
 ];
 
-const addEmoji = async (
+const doOperation = async (
+  msgId: string,
+  channelId: string,
+  teamId: string,
+  reactionId: string | undefined,
+  threadId: string | undefined,
+  value: string,
+  response: InteractionResponseHandler,
+): Promise<void> => {
+  let text = '>Ok, not adding as award :crying_cat_face:.';
+  if (value === '1') {
+    text = '>Great, the award was added :tada:!';
+    await PendingLeaderboardContent.commitAwards(
+      msgId,
+      teamId,
+      channelId,
+      reactionId,
+    );
+  } else {
+    await PendingLeaderboardContent.deleteAwards(
+      msgId,
+      teamId,
+      channelId,
+      reactionId,
+    );
+  }
+  response({
+    replace_original: true,
+    response_type: 'ephemeral',
+    text,
+    thread_ts: threadId,
+  });
+};
+
+const addEmoji = (
   {
     actions: [{ action_id: actionId, value }],
     channel: { id: channelId },
     team: { id: teamId },
   }: EventBody,
   response: InteractionResponseHandler,
-): Promise<void> => {
+): void => {
   const [_, __, threadId, reactionId, msgId] = actionId.split('_');
   const finalThreadId = threadId === 'null' ? undefined : threadId;
   const finalReactionId = reactionId === 'null' ? undefined : reactionId;
-  try {
-    let text = '>Ok, not adding as award :crying_cat_face:.';
-    if (value === '1') {
-      text = '>Great the award was added :tada:!';
-      await PendingLeaderboardContent.commitAwards(
-        msgId,
-        teamId,
-        channelId,
-        finalReactionId,
-      );
-    } else {
-      await PendingLeaderboardContent.deleteAwards(
-        msgId,
-        teamId,
-        channelId,
-        finalReactionId,
-      );
-    }
-    response({
-      replace_original: true,
-      response_type: 'ephemeral',
-      text,
-      thread_ts: finalThreadId,
-    });
-  } catch (err) {
+  /*
+   Slack recommends that interaction handlers do should not return ANY value from handlers when using block messages.
+   In this case, the handler entry point should not be an async function, which would make it to implicitly return
+   a Promise.
+  */
+  doOperation(
+    msgId,
+    channelId,
+    teamId,
+    finalReactionId,
+    finalThreadId,
+    value,
+    response,
+  ).catch(err => {
     // eslint-disable-next-line no-console
     console.error(err);
     response({
@@ -104,7 +127,7 @@ const addEmoji = async (
       text: 'Oops, could not perform the operation :crying_cat_face:.',
       thread_ts: finalThreadId,
     });
-  }
+  });
 };
 
 export default addEmoji;
