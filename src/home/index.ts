@@ -95,6 +95,16 @@ const createHomeScreen = async (
         type: 'context',
       },
       ...leaderboardData,
+      {
+        elements: [
+          {
+            text:
+              'Piñata icon provided by <https://www.flaticon.com/br/autores/freepik|Freepik> from <https://www.flaticon.com/|Flaticon>',
+            type: 'mrkdwn',
+          },
+        ],
+        type: 'context',
+      },
     ],
     type: 'home',
   };

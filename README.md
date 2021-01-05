@@ -1,4 +1,4 @@
-# Piñata Libre
+# Piñata Libre ![pinata](./icon/pinatax64.png)
 
 This project is a clone of [HeyTaco](https://www.heytaco.chat/) slack app, but open and free.
 
@@ -85,4 +85,6 @@ You're ready
 ## TODO, bugs and new features
 
 Please visit [the issues page](https://github.com/cabelitos/pinata-libre/issues)
+## Credits
 
+Piñata icon provided by [Freepik](https://www.flaticon.com/br/autores/freepik) from [Flaticon](https://www.flaticon.com/)
