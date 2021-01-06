@@ -1,3 +1,5 @@
+import pluralize from 'pluralize';
+
 import { createAddEmojiInteractions } from '../../interactions-adapter/events/add-emoji';
 import sendMessage from '../../utils/send-message';
 import { getSlackBotInfo } from '../../install-provider';
@@ -90,23 +92,31 @@ const addEmojisToUser = async ({
     (people.length > 1 || (people.length === 1 && people[0][1] !== botUserId))
   ) {
     const emojis = Array.from(emojisNotAllowedSet);
+    const emojisCount = emojis.length;
+    const pluralIt = pluralize('it', emojisCount);
     await sendMessage({
       botToken,
       channel,
       content: [
         {
           text: {
-            emoji: true,
-            text: `Hey, these emoji${
-              emojisToSaveLater.length === 1 ? '' : 's'
-            } ${emojis.join(
-              ' ',
-            )} will not count as reward. Would you like to add it to your team to count as an award?`,
-            type: 'plain_text',
+            text: `>Hey, ${pluralize('this', emojisCount)} ${pluralize(
+              'emoji',
+              emojisCount,
+            )} ${emojis.join(' ')} will not count as ${pluralize(
+              'reward',
+              emojisCount,
+            )}. Would you like to add ${pluralIt} to your team to count as an award?`,
+            type: 'mrkdwn',
           },
           type: 'section',
         },
-        ...createAddEmojiInteractions(threadId, messageId, reactionId),
+        ...createAddEmojiInteractions(
+          threadId,
+          messageId,
+          reactionId,
+          pluralIt,
+        ),
       ],
       ephemeral: { user: givenByUserId },
       teamId,

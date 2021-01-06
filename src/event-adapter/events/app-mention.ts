@@ -1,3 +1,5 @@
+import pluralize from 'pluralize';
+
 import AllowedEmoji from '../../entities/AllowedEmoji';
 import createLeaderboard from '../../utils/create-leaderboard';
 import { getEmojisMatch, getMentionedPeople } from '../../utils/regex';
@@ -60,7 +62,10 @@ const commands: Command[] = [
         try {
           await sendMessage({
             channel,
-            content: `Something wrong has ocurred and I could not add the emojis ${args} to the app. Sorry :expressionless:`,
+            content: `Something wrong has ocurred and I could not add the ${pluralize(
+              'emoji',
+              emojisMatch.length,
+            )} ${args} to the app. Sorry :expressionless:`,
             ephemeral: { user },
             teamId,
             threadId,

@@ -30,6 +30,7 @@ export const createAddEmojiInteractions = (
   threadId: string | null,
   messageId: string,
   reactionId: string | null,
+  pluralIt: string,
 ): KnownBlock[] => [
   {
     elements: [
@@ -38,7 +39,7 @@ export const createAddEmojiInteractions = (
         style: 'primary',
         text: {
           emoji: true,
-          text: 'Please, add it!',
+          text: `Please, add ${pluralIt}!`,
           type: 'plain_text',
         },
         type: 'button',
@@ -49,7 +50,7 @@ export const createAddEmojiInteractions = (
         style: 'danger',
         text: {
           emoji: true,
-          text: 'Ignore it!',
+          text: `Ignore ${pluralIt}!`,
           type: 'plain_text',
         },
         type: 'button',

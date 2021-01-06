@@ -1,12 +1,14 @@
 import process from 'process';
 import { createConnection } from 'typeorm';
 import express from 'express';
+import pluralize from 'pluralize';
 
 import createAppRoutes from './routes';
 import createEventHandlers from './event-adapter';
 import createInteractionHandlers from './interactions-adapter';
 
 const startService = async (): Promise<void> => {
+  pluralize.addPluralRule(/^it$/i, 'them');
   await createConnection();
 
   const app = express();
