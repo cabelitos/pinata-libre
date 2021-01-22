@@ -18,7 +18,7 @@ export const getMentionedPeople = async (
         const matchData = match[1];
         if (match.groups?.subteam) {
           const groupData = ((await client.usergroups.users.list({
-            usergroup: matchData,
+            usergroup: match.groups.subteam.split('|')[0],
           })) as unknown) as GroupData;
           return groupData.users;
         }
