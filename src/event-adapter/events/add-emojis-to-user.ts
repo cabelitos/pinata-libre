@@ -5,6 +5,7 @@ import sendMessage from '../../utils/send-message';
 import { getSlackBotInfo } from '../../install-provider';
 import AllowedEmoji from '../../entities/AllowedEmoji';
 import Leaderboard from '../../entities/Leaderboard';
+import DoNotAskForAddEmojis from '../../entities/DoNotAskForAddEmojis';
 import type { InsertLeaderboardData } from '../../entities/LeaderboardContent';
 
 interface EmojisToAdd {
@@ -78,7 +79,16 @@ const addEmojisToUser = async ({
     },
     { emojisToSaveByUserId: {}, emojisToToSaveLaterByUserId: {} },
   );
-  const emojisToSaveLater = Object.values(emojisToToSaveLaterByUserId).flat();
+  const isSaveLaterEnabled =
+    (await DoNotAskForAddEmojis.count({
+      where: {
+        teamId,
+        userId: givenByUserId,
+      },
+    })) === 0;
+  const emojisToSaveLater = isSaveLaterEnabled
+    ? Object.values(emojisToToSaveLaterByUserId).flat()
+    : [];
   await Leaderboard.addAwards(
     Object.values(emojisToSaveByUserId).flat(),
     messageIdToDelete,
@@ -87,6 +97,7 @@ const addEmojisToUser = async ({
     emojisToSaveLater,
   );
   if (
+    isSaveLaterEnabled &&
     emojisNotAllowedSet.size &&
     // ignore this message if one tries to do @pinata-libre add-emoji ...
     (people.length > 1 || (people.length === 1 && people[0][1] !== botUserId))

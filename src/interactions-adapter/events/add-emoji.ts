@@ -1,19 +1,24 @@
 import type { KnownBlock } from '@slack/web-api';
 
 import PendingLeaderboardContent from '../../entities/PendingLeaderbordContent';
+import DoNotAskForAddEmojis from '../../entities/DoNotAskForAddEmojis';
 import type { InteractionResponseHandler } from '../../utils/types';
 
 const separator = '_';
-const addEmojiEventPrefix = `add${separator}emoji`;
+const addEmojiEventPrefix = `addEmoji`;
+const doNotAskEventAction = 'doNotAskMe';
 
 export const addEmojiEventAction = {
-  actionId: new RegExp(`${addEmojiEventPrefix}${separator}(.+)`),
+  actionId: new RegExp(
+    `${addEmojiEventPrefix}${separator}(.+)|^${doNotAskEventAction}${separator}(.+)$`,
+  ),
 };
 
 interface EventBody {
-  actions: { action_id: string; value: string }[];
+  actions: { action_id: string; value: string; selected_options?: unknown[] }[];
   channel: { id: string };
   team: { id: string };
+  user: { id: string };
 }
 
 const createEmojiActionId = (
@@ -25,6 +30,9 @@ const createEmojiActionId = (
   `${addEmojiEventPrefix}${separator}${threadId || 'null'}${separator}${
     reactionId || 'null'
   }${separator}${messageId}${separator}${isPrimary ? '1' : '0'}`;
+
+const createDoNotAskForEmojisActionId = (threadId: string | null): string =>
+  `${doNotAskEventAction}${separator}${threadId || 'null'}`;
 
 export const createAddEmojiInteractions = (
   threadId: string | null,
@@ -56,12 +64,24 @@ export const createAddEmojiInteractions = (
         type: 'button',
         value: '0',
       },
+      {
+        action_id: createDoNotAskForEmojisActionId(threadId),
+        options: [
+          {
+            text: {
+              text: 'Please, stop asking me.',
+              type: 'plain_text',
+            },
+          },
+        ],
+        type: 'checkboxes',
+      },
     ],
     type: 'actions',
   },
 ];
 
-const doOperation = async (
+const handleAddEmojiEvent = async (
   msgId: string,
   channelId: string,
   teamId: string,
@@ -95,31 +115,53 @@ const doOperation = async (
   });
 };
 
-const addEmoji = (
+const handleDoNotAskEvent = (
+  teamId: string,
+  userId: string,
+  selectedOptions: unknown[] | undefined | null,
+  _response: InteractionResponseHandler,
+): Promise<unknown> => {
+  return !selectedOptions?.length
+    ? DoNotAskForAddEmojis.deleteDoNotAskForEmojis(teamId, userId)
+    : DoNotAskForAddEmojis.addDoNotAskForEmojis(teamId, userId);
+};
+
+const eventHandler = (
   {
-    actions: [{ action_id: actionId, value }],
+    actions: [
+      { action_id: actionId, value, selected_options: selectedOptions },
+    ],
     channel: { id: channelId },
     team: { id: teamId },
+    user: { id: userId },
   }: EventBody,
   response: InteractionResponseHandler,
 ): void => {
-  const [_, __, threadId, reactionId, msgId] = actionId.split('_');
-  const finalThreadId = threadId === 'null' ? undefined : threadId;
-  const finalReactionId = reactionId === 'null' ? undefined : reactionId;
-  /*
+  let operation: Promise<unknown>;
+  const [actionName, threadId, reactionId, msgId] = actionId.split('_');
+  let finalThreadId: undefined | string;
+  if (actionName === doNotAskEventAction) {
+    operation = handleDoNotAskEvent(teamId, userId, selectedOptions, response);
+    finalThreadId = undefined;
+  } else {
+    finalThreadId = threadId === 'null' ? undefined : threadId;
+    const finalReactionId = reactionId === 'null' ? undefined : reactionId;
+    /*
    Slack recommends that interaction handlers do should not return ANY value from handlers when using block messages.
    In this case, the handler entry point should not be an async function, which would make it to implicitly return
    a Promise.
   */
-  doOperation(
-    msgId,
-    channelId,
-    teamId,
-    finalReactionId,
-    finalThreadId,
-    value,
-    response,
-  ).catch(err => {
+    operation = handleAddEmojiEvent(
+      msgId,
+      channelId,
+      teamId,
+      finalReactionId,
+      finalThreadId,
+      value,
+      response,
+    );
+  }
+  operation.catch(err => {
     // eslint-disable-next-line no-console
     console.error(err);
     response({
@@ -131,4 +173,4 @@ const addEmoji = (
   });
 };
 
-export default addEmoji;
+export default eventHandler;
