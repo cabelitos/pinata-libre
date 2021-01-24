@@ -14,6 +14,10 @@ export const addEmojiEventAction = {
   ),
 };
 
+export const vai = new RegExp(
+  `${addEmojiEventPrefix}${separator}(.+)|^${doNotAskEventAction}${separator}(.+)$`,
+);
+
 interface EventBody {
   actions: { action_id: string; value: string; selected_options?: unknown[] }[];
   channel: { id: string };
@@ -31,8 +35,9 @@ const createEmojiActionId = (
     reactionId || 'null'
   }${separator}${messageId}${separator}${isPrimary ? '1' : '0'}`;
 
-const createDoNotAskForEmojisActionId = (threadId: string | null): string =>
-  `${doNotAskEventAction}${separator}${threadId || 'null'}`;
+export const createDoNotAskForEmojisActionId = (
+  threadId: string | null,
+): string => `${doNotAskEventAction}${separator}${threadId || 'null'}`;
 
 export const createAddEmojiInteractions = (
   threadId: string | null,
@@ -137,6 +142,7 @@ const eventHandler = (
   }: EventBody,
   response: InteractionResponseHandler,
 ): void => {
+  console.log(actionId);
   let operation: Promise<unknown>;
   const [actionName, threadId, reactionId, msgId] = actionId.split('_');
   let finalThreadId: undefined | string;

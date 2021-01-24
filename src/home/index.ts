@@ -1,14 +1,33 @@
-import type { View } from '@slack/web-api';
+import type { View, Option } from '@slack/web-api';
 
 import Leaderboard from '../entities/Leaderboard';
 import AllowedEmoji from '../entities/AllowedEmoji';
+import DoNotAskForAddEmojis from '../entities/DoNotAskForAddEmojis';
 
 import createLeaderboard from '../utils/create-leaderboard';
+
+import { createDoNotAskForEmojisActionId } from '../interactions-adapter/events/add-emoji';
 
 const createAwardText = (awards: number, given: boolean): string =>
   `You ${given ? 'gave' : 'received'} ${awards} ${
     awards === 1 ? 'award' : 'awards'
   }`;
+
+const yesOption: Option = {
+  text: {
+    text: 'Yes',
+    type: 'plain_text',
+  },
+  value: 'yes',
+};
+
+const noOption: Option = {
+  text: {
+    text: 'No',
+    type: 'plain_text',
+  },
+  value: 'no',
+};
 
 const createHomeScreen = async (
   teamId: string,
@@ -20,14 +39,38 @@ const createHomeScreen = async (
     givenAwards,
     allowedEmojis,
     leaderboardData,
+    shouldAskForNewEmojis,
   ] = await Promise.all([
     Leaderboard.count({ where: { teamId, userId } }),
     Leaderboard.count({ where: { givenByUserId: userId, teamId } }),
     AllowedEmoji.find({ select: ['id'], where: { teamId } }),
     createLeaderboard(teamId, botToken, false),
+    DoNotAskForAddEmojis.count({ where: { teamId, userId } }),
   ]);
   return {
     blocks: [
+      {
+        text: {
+          emoji: true,
+          text: 'Should I ask you to add new emojis automatically?',
+          type: 'plain_text',
+        },
+        type: 'header',
+      },
+      {
+        type: 'divider',
+      },
+      {
+        elements: [
+          {
+            action_id: createDoNotAskForEmojisActionId(null),
+            initial_option: shouldAskForNewEmojis === 1 ? noOption : yesOption,
+            options: [yesOption, noOption],
+            type: 'radio_buttons',
+          },
+        ],
+        type: 'actions',
+      },
       {
         text: {
           emoji: true,

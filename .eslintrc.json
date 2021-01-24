@@ -35,7 +35,7 @@
           "error"
         ],
         "camelcase": ["error", {
-          "allow": ["selected_options", "is_ephemeral", "action_id", "event_ts", "delete_original", "client_msg_id", "thread_ts", "user_id", "alt_text", "image_url", "real_name", "image_192", "team_id", "previous_message", "callback_id", "response_type", "replace_original"]
+          "allow": ["initial_option", "selected_options", "is_ephemeral", "action_id", "event_ts", "delete_original", "client_msg_id", "thread_ts", "user_id", "alt_text", "image_url", "real_name", "image_192", "team_id", "previous_message", "callback_id", "response_type", "replace_original"]
         }],
         "import/extensions": ["error", "never"],
         "@typescript-eslint/consistent-type-assertions": [
